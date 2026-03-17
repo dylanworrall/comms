@@ -5,6 +5,12 @@ import { loginCommand } from "./commands/login.js";
 import { configCommand } from "./commands/config.js";
 import { uiCommand } from "./commands/ui.js";
 import { cronCommand } from "./commands/cron.js";
+import { inboxCommand } from "./commands/inbox.js";
+import { contactsCommand } from "./commands/contacts.js";
+import { callsCommand } from "./commands/calls.js";
+import { voiceCommand } from "./commands/voice.js";
+import { approvalsCommand } from "./commands/approvals.js";
+import { activityCommand } from "./commands/activity.js";
 import { setVerbose } from "../utils/logger.js";
 import { printBanner } from "./banner.js";
 
@@ -25,6 +31,12 @@ program.addCommand(loginCommand);
 program.addCommand(configCommand);
 program.addCommand(uiCommand);
 program.addCommand(cronCommand);
+program.addCommand(inboxCommand);
+program.addCommand(contactsCommand);
+program.addCommand(callsCommand);
+program.addCommand(voiceCommand);
+program.addCommand(approvalsCommand);
+program.addCommand(activityCommand);
 
 if (process.argv.length <= 2) {
   printBanner();
