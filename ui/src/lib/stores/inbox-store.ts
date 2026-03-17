@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
+export type DomainType = "personal" | "business";
+
 export interface Email {
   id: string;
   from: string;
@@ -10,12 +12,55 @@ export interface Email {
   cc?: string;
   subject: string;
   body: string;
+  bodyHtml?: string;
   preview: string;
   timestamp: string;
   read: boolean;
   flagged: boolean;
   folder: "inbox" | "sent" | "drafts" | "trash";
   threadId?: string;
+  gmailMessageId?: string;
+  // Domain classification (deterministic, not AI)
+  domainType?: DomainType;
+  // AI processing fields
+  tags?: string[];
+  priority?: number;
+  senderType?: "human" | "auto";
+  aiSummary?: string;
+  aiDraftReply?: string;
+  project?: string;
+}
+
+/** Free/consumer email provider domains */
+const PERSONAL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com",
+  "yahoo.com", "yahoo.co.uk", "yahoo.co.jp", "yahoo.fr", "yahoo.de", "ymail.com", "rocketmail.com",
+  "hotmail.com", "outlook.com", "live.com", "msn.com", "hotmail.co.uk", "hotmail.fr",
+  "aol.com",
+  "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "pm.me",
+  "mail.com", "email.com",
+  "zoho.com", "zohomail.com",
+  "gmx.com", "gmx.net", "gmx.de",
+  "yandex.com", "yandex.ru",
+  "tutanota.com", "tuta.io",
+  "fastmail.com", "fastmail.fm",
+  "hey.com",
+  "mail.ru", "inbox.ru",
+  "comcast.net", "att.net", "verizon.net", "sbcglobal.net", "cox.net", "charter.net",
+  "bellsouth.net", "earthlink.net", "optonline.net", "frontier.com",
+]);
+
+/**
+ * Classify sender domain as personal or business.
+ * Deterministic — based on the email domain, not AI.
+ * Returns "personal" for free providers (@gmail.com, @yahoo.com, etc.)
+ * Returns "business" for custom/company domains (@acmecorp.com, etc.)
+ */
+export function classifyDomain(email: string): DomainType {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return "personal";
+  return PERSONAL_DOMAINS.has(domain) ? "personal" : "business";
 }
 
 const DATA_DIR = process.env.COMMS_DATA_DIR ?? join(homedir(), ".comms", "data");
@@ -114,6 +159,15 @@ function seedIfEmpty(): Email[] {
     }));
     saveAll(emails);
   }
+  // Backfill domainType for any emails missing it
+  let dirty = false;
+  for (const e of emails) {
+    if (!e.domainType) {
+      e.domainType = classifyDomain(e.from);
+      dirty = true;
+    }
+  }
+  if (dirty) saveAll(emails);
   return emails;
 }
 
@@ -130,6 +184,9 @@ export function getEmails(opts: {
   unreadOnly?: boolean;
   flagged?: boolean;
   limit?: number;
+  senderType?: "human" | "auto";
+  tag?: string;
+  sortBy?: "time" | "priority";
 }): Email[] {
   let emails = seedIfEmpty();
 
@@ -142,15 +199,39 @@ export function getEmails(opts: {
   if (opts.flagged) {
     emails = emails.filter((e) => e.flagged);
   }
+  if (opts.senderType) {
+    emails = emails.filter((e) => e.senderType === opts.senderType);
+  }
+  if (opts.tag) {
+    emails = emails.filter((e) => e.tags?.includes(opts.tag!));
+  }
 
-  // Sort newest first
-  emails.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (opts.sortBy === "priority") {
+    emails.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  } else {
+    emails.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
 
   if (opts.limit) {
     emails = emails.slice(0, opts.limit);
   }
 
   return emails;
+}
+
+export function updateEmailAI(id: string, aiData: {
+  tags?: string[];
+  priority?: number;
+  senderType?: "human" | "auto";
+  aiSummary?: string;
+  aiDraftReply?: string;
+}): Email | null {
+  const emails = seedIfEmpty();
+  const email = emails.find((e) => e.id === id);
+  if (!email) return null;
+  Object.assign(email, aiData);
+  saveAll(emails);
+  return email;
 }
 
 export function addEmail(
@@ -160,7 +241,8 @@ export function addEmail(
   const email: Email = {
     ...data,
     id: crypto.randomUUID(),
-    preview: data.body.replace(/\n/g, " ").slice(0, 120),
+    preview: data.body.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\n/g, " ").trim().slice(0, 120),
+    domainType: data.domainType ?? classifyDomain(data.from),
   };
   emails.push(email);
   saveAll(emails);
@@ -192,6 +274,15 @@ export function moveToFolder(id: string, folder: Email["folder"]): Email | null 
   email.folder = folder;
   saveAll(emails);
   return email;
+}
+
+export function deleteEmail(id: string): boolean {
+  const emails = seedIfEmpty();
+  const idx = emails.findIndex((e) => e.id === id);
+  if (idx === -1) return false;
+  emails.splice(idx, 1);
+  saveAll(emails);
+  return true;
 }
 
 export function getUnreadCount(): number {

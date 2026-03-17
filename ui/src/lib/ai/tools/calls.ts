@@ -88,25 +88,31 @@ export const callTools = {
 
   initiate_call: tool({
     description:
-      "Initiate a phone call to a given number. This creates an approval item — the call is NOT placed until the user approves it.",
+      "Place a phone call to a given number. The AI voice agent will handle the conversation in real-time. Optionally include a purpose/message for the AI to deliver. This creates an approval item — the call is NOT placed until the user approves it.",
     inputSchema: z.object({
       phoneNumber: z.string().describe("The phone number to call"),
       contactName: z
         .string()
         .optional()
         .describe("Name of the person being called (for display)"),
+      purpose: z
+        .string()
+        .optional()
+        .describe("Brief description of the call's purpose or message to deliver (e.g., 'tell them I'm running late', 'schedule a meeting')"),
     }),
-    execute: async ({ phoneNumber, contactName }) => {
+    execute: async ({ phoneNumber, contactName, purpose }) => {
       const displayName = contactName ?? phoneNumber;
       const approval = createApproval("initiate_call", {
         phoneNumber,
         contactName: displayName,
+        aiVoiceCall: true,
+        purpose: purpose || "General AI voice call",
       });
       return {
-        message: `Call to ${displayName} (${phoneNumber}) queued for approval (ID: ${approval.id}). The user must approve before the call is placed.`,
+        message: `AI voice call to ${displayName} (${phoneNumber}) queued for approval (ID: ${approval.id}). When approved, the AI agent will call and speak to them${purpose ? ` about: ${purpose}` : ""}.`,
         needsApproval: true,
         approvalId: approval.id,
-        call: { phoneNumber, contactName: displayName },
+        call: { phoneNumber, contactName: displayName, purpose },
       };
     },
   }),

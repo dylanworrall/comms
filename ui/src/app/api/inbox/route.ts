@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmails, getUnreadCount, markRead, addEmail } from "@/lib/stores/inbox-store";
+import { getEmails, getUnreadCount, markRead, addEmail, deleteEmail } from "@/lib/stores/inbox-store";
 import { createApproval } from "@/lib/stores/approvals";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
@@ -10,6 +10,9 @@ export async function GET(req: Request) {
   const unreadOnly = url.searchParams.get("unreadOnly") === "true";
   const flagged = url.searchParams.get("flagged") === "true";
   const limit = Number(url.searchParams.get("limit") ?? 50);
+  const senderType = url.searchParams.get("senderType") as "human" | "auto" | null;
+  const tag = url.searchParams.get("tag");
+  const sortBy = url.searchParams.get("sortBy") as "time" | "priority" | null;
 
   if (isConvexMode()) {
     const convex = getConvexClient()!;
@@ -23,7 +26,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ emails, unreadCount });
   }
 
-  const emails = getEmails({ folder: folder ?? undefined, unreadOnly, flagged, limit });
+  const emails = getEmails({
+    folder: folder ?? undefined,
+    unreadOnly,
+    flagged,
+    limit,
+    senderType: senderType ?? undefined,
+    tag: tag ?? undefined,
+    sortBy: sortBy ?? undefined,
+  });
   const unreadCount = getUnreadCount();
   return NextResponse.json({ emails, unreadCount });
 }
@@ -39,6 +50,16 @@ export async function POST(req: Request) {
     }
     markRead(body.id);
     return NextResponse.json({ success: true });
+  }
+
+  if (body.action === "delete") {
+    if (isConvexMode()) {
+      const convex = getConvexClient()!;
+      await convex.mutation(api.emails.remove, { id: body.id });
+      return NextResponse.json({ success: true });
+    }
+    const deleted = deleteEmail(body.id);
+    return NextResponse.json({ success: deleted });
   }
 
   if (body.action === "compose") {

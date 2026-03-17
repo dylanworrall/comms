@@ -27,12 +27,12 @@ function getInitials(name: string) {
 
 function getAvatarColor(name: string) {
   const colors = [
-    "bg-cyan-500/20 text-cyan-400",
-    "bg-purple-500/20 text-purple-400",
-    "bg-green-500/20 text-green-400",
-    "bg-amber-500/20 text-amber-400",
-    "bg-rose-500/20 text-rose-400",
-    "bg-blue-500/20 text-blue-400",
+    "bg-[#0A84FF]/15 text-[#0A84FF]",
+    "bg-[#BF5AF2]/15 text-[#BF5AF2]",
+    "bg-[#30D158]/15 text-[#30D158]",
+    "bg-[#FF9F0A]/15 text-[#FF9F0A]",
+    "bg-[#FF453A]/15 text-[#FF453A]",
+    "bg-[#5E5CE6]/15 text-[#5E5CE6]",
   ];
   let hash = 0;
   for (const char of name) hash = char.charCodeAt(0) + ((hash << 5) - hash);
@@ -54,7 +54,7 @@ export function ContactCard({
     <div
       onClick={() => onClick?.(id)}
       className={cn(
-        "p-4 rounded-xl bg-surface-1 border border-border hover:border-accent/30 transition-colors",
+        "p-4 rounded-2xl bg-surface-1 border border-border hover:border-foreground/15 transition-all",
         onClick && "cursor-pointer",
         className
       )}
@@ -62,7 +62,7 @@ export function ContactCard({
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0",
+            "w-10 h-10 rounded-2xl flex items-center justify-center font-semibold text-sm flex-shrink-0",
             getAvatarColor(name)
           )}
         >
@@ -70,14 +70,14 @@ export function ContactCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-medium text-sm text-foreground truncate">{name}</div>
-          <div className="text-xs text-muted-foreground truncate">{email}</div>
+          <div className="text-xs text-foreground/40 truncate">{email}</div>
           {company && (
-            <div className="text-xs text-muted-foreground mt-0.5">{company}</div>
+            <div className="text-xs text-foreground/30 mt-0.5">{company}</div>
           )}
         </div>
       </div>
       {phone && (
-        <div className="text-xs text-muted-foreground mt-2">{phone}</div>
+        <div className="text-xs text-foreground/30 mt-2">{phone}</div>
       )}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
@@ -85,7 +85,7 @@ export function ContactCard({
             <Badge
               key={tag}
               variant="secondary"
-              className="text-[10px] px-1.5 py-0"
+              className="text-[10px] px-1.5 py-0 bg-surface-2/60 text-foreground/50 border-0"
             >
               {tag}
             </Badge>
@@ -93,7 +93,7 @@ export function ContactCard({
         </div>
       )}
       {lastContacted && (
-        <div className="text-[10px] text-muted-foreground mt-2">
+        <div className="text-[10px] text-foreground/20 mt-2">
           Last contacted: {new Date(lastContacted).toLocaleDateString()}
         </div>
       )}

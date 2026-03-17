@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd ui:*)",
+      "Bash(npm run:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(curl:*)",
+      "Read(//c/Users/worra/.claude/**)",
+      "Read(//c/Users/worra/OneDrive/Desktop/comms/ui/$APPDATA/claude/**)",
+      "Bash(npm install:*)",
+      "Bash(find:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(which ngrok:*)",
+      "Bash(node:*)",
+      "WebSearch",
+      "WebFetch(domain:www.twilio.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:thoughts.ckbrox.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:discuss.google.dev)",
+      "WebFetch(domain:googleapis.github.io)",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "WebFetch(domain:elevenlabs.io)",
+      "WebFetch(domain:async.com)",
+      "WebFetch(domain:docs.cartesia.ai)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(netstat:*)"
+    ]
+  }
+}

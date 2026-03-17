@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   LoaderIcon,
   CheckCircleIcon,
@@ -14,11 +14,33 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { redirect } from "next/navigation";
+
+const isCloudMode = !!process.env.NEXT_PUBLIC_CONVEX_URL;
 
 type Mode = "signin" | "signup";
 
 export default function LoginPage() {
-  const router = useRouter();
+  // Local mode has no login page — API key is configured in Settings
+  if (!isCloudMode) {
+    redirect("/");
+  }
+
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-surface-0 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+      </div>
+    }>
+      <CloudLoginPage />
+    </Suspense>
+  );
+}
+
+/* ─── Cloud Mode: BetterAuth Login ─── */
+function CloudLoginPage() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,7 +86,7 @@ export default function LoginPage() {
       });
 
       setSuccess(true);
-      setTimeout(() => router.push("/"), 800);
+      setTimeout(() => { window.location.href = callbackUrl; }, 800);
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -82,7 +104,7 @@ export default function LoginPage() {
             </h2>
             <p className="text-sm text-muted mb-4">Redirecting to chat...</p>
             <Button
-              onClick={() => router.push("/")}
+              onClick={() => { window.location.href = callbackUrl; }}
               className="w-full bg-accent hover:bg-accent/80 text-white rounded-xl"
             >
               Go to Chat <ArrowRightIcon className="size-4" />

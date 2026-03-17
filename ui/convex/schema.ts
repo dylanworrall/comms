@@ -130,7 +130,16 @@ export default defineSchema({
   users: defineTable({
     email: v.string(),
     name: v.string(),
-    credits: v.number(),
+    plan: v.optional(v.union(v.literal("free"), v.literal("pro"), v.literal("business"))),
+    cachedBalance: v.optional(v.number()),
+    polarCustomerId: v.optional(v.string()),
+    // Legacy fields (ignored, kept for backwards compat with existing docs)
+    credits: v.optional(v.number()),
+    includedCredits: v.optional(v.number()),
+    includedCreditsUsed: v.optional(v.number()),
+    overageCredits: v.optional(v.number()),
+    currentPeriodStart: v.optional(v.string()),
+    polarSubscriptionId: v.optional(v.string()),
     createdAt: v.string(),
   }).index("by_email", ["email"]),
 });

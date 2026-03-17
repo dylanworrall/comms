@@ -43,6 +43,8 @@ export const emailTools = {
           read: e.read,
           flagged: e.flagged,
           folder: e.folder,
+          domainType: e.domainType,
+          gmailMessageId: e.gmailMessageId,
         })),
       };
     },

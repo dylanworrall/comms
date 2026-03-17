@@ -12,9 +12,10 @@ export function MainContent({ children }: { children: React.ReactNode }) {
   return (
     <main
       className={cn(
-        "min-h-screen transition-[margin-left] duration-300",
+        "min-h-screen transition-[margin-left] duration-300 overflow-hidden",
         collapsed ? "ml-[88px]" : "ml-[248px]"
       )}
+      style={{ maxWidth: collapsed ? "calc(100vw - 88px)" : "calc(100vw - 248px)" }}
     >
       {children}
     </main>

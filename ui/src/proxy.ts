@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks"];
 
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   // Local mode (no Convex URL) = free, no auth required
   if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
     return NextResponse.next();
   }
 
   const { pathname } = request.nextUrl;
+
+  // Check for BetterAuth session cookie
+  const sessionToken =
+    request.cookies.get("better-auth.session_token") ??
+    request.cookies.get("__Secure-better-auth.session_token");
+
+  // Redirect authenticated users away from /login
+  if (pathname === "/login" && sessionToken) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
 
   // Allow public paths and static assets
   if (
@@ -20,11 +30,6 @@ export function middleware(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
-
-  // Check for BetterAuth session cookie
-  const sessionToken =
-    request.cookies.get("better-auth.session_token") ??
-    request.cookies.get("__Secure-better-auth.session_token");
 
   if (!sessionToken) {
     const loginUrl = new URL("/login", request.url);

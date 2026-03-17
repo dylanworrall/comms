@@ -5,6 +5,8 @@ import { calendarTools } from "./calendar";
 import { approvalTools } from "./approvals";
 import { spaceTools } from "./spaces";
 import { settingsTools } from "./settings";
+import { gmailTools } from "./gmail";
+import { aiEmailTools } from "./ai-email";
 
 export const allTools = {
   ...contactTools,
@@ -14,4 +16,6 @@ export const allTools = {
   ...approvalTools,
   ...spaceTools,
   ...settingsTools,
+  ...gmailTools,
+  ...aiEmailTools,
 };

@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 
 export interface ActivityEntry {
   id: string;
-  type: "email_sent" | "email_received" | "contact_added" | "approval_resolved";
+  type: "email_sent" | "email_received" | "contact_added" | "approval_resolved" | "call_placed" | "call_initiated" | "call_answered" | "call_ended" | "call_recording_saved";
   summary: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
