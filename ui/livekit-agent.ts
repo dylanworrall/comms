@@ -7,7 +7,7 @@
  * Usage: npx tsx livekit-agent.ts
  */
 
-import { defineAgent, type JobContext, type JobProcess, cli } from "@livekit/agents";
+import { defineAgent, type JobContext, type JobProcess, cli, ServerOptions } from "@livekit/agents";
 import { voice } from "@livekit/agents";
 import { STT } from "@livekit/agents-plugin-deepgram";
 import { LLM } from "@livekit/agents-plugin-google";
@@ -89,14 +89,12 @@ export default defineAgent({
         model: "gemini-2.5-flash",
       }),
       tts: new TTS({
-        voiceId: cartesiaVoiceId,
+        voice: cartesiaVoiceId,
       }),
       instructions: systemPrompt,
     });
 
-    // Start the agent session
-    const session = await agent.start(ctx.room);
-
+    // The framework manages the agent lifecycle — session is available after start
     // Generate initial greeting
     const agentName = agentConfig.agentName;
     const companyName = agentConfig.companyName;
@@ -120,7 +118,7 @@ export default defineAgent({
         greeting = `Hi, this is ${agentName} from ${companyName}. How can I help you?`;
     }
 
-    session.say(greeting);
+    agent.session.say(greeting);
 
     console.log(`[LiveKit Agent] Session started, greeting: "${greeting}"`);
   },
@@ -128,7 +126,7 @@ export default defineAgent({
 
 // Run the agent via CLI
 cli.runApp(
-  new cli.WorkerOptions({
+  new ServerOptions({
     agent: resolve(__dirname, "livekit-agent.ts"),
   })
 );

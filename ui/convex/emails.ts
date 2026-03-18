@@ -88,6 +88,13 @@ export const moveToFolder = mutation({
   },
 });
 
+export const remove = mutation({
+  args: { id: v.id("emails") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
+
 export const seed = mutation({
   handler: async (ctx) => {
     const existing = await ctx.db.query("emails").first();

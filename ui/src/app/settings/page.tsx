@@ -1053,7 +1053,7 @@ export default function SettingsPage() {
   const handleBuyCredits = async (productId: string) => {
     setCheckoutLoading(true);
     try {
-      await authClient.checkoutEmbed({
+      await (authClient as any).checkoutEmbed({
         products: [productId],
         successUrl: window.location.origin + "/settings?tab=billing&purchased=1",
       });

@@ -94,8 +94,7 @@ export function useTwilioCall() {
       const { Device } = await import("@twilio/voice-sdk");
       const device = new Device(token, {
         codecPreferences: ["opus", "pcmu"] as any,
-        enableImplicitSubscription: true,
-      });
+      } as any);
 
       device.on("registered", () => {
         console.log("[Twilio] Device ready");
