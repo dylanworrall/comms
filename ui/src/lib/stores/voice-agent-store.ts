@@ -3,7 +3,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { randomUUID } from "crypto";
 
-const DATA_DIR = join(homedir(), ".comms", "data");
+const DATA_DIR = process.env.COMMS_DATA_DIR ?? join(homedir(), ".comms", "data");
 const VOICE_AGENTS_FILE = join(DATA_DIR, "voice-agents.json");
 
 export interface CallCadenceStep {

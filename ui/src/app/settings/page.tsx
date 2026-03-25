@@ -1101,6 +1101,7 @@ export default function SettingsPage() {
   }
 
   const isCloudMode = !!process.env.NEXT_PUBLIC_CONVEX_URL;
+  const isManagedMode = process.env.NEXT_PUBLIC_COMMS_MANAGED === "true";
 
   const tabs: { value: Tab; label: string; icon: React.ElementType }[] = [
     { value: "general", label: "General", icon: SettingsIcon },
@@ -1143,8 +1144,8 @@ export default function SettingsPage() {
       {/* General Tab */}
       {tab === "general" && (
         <div className="space-y-8">
-          {/* Auth — local mode: inline API key form; cloud mode: status only */}
-          {!isCloudMode ? (
+          {/* Auth — local/self-hosted: inline API key form; cloud/managed: status only */}
+          {!isCloudMode && !isManagedMode ? (
             <AuthSection authStatus={authStatus} onUpdate={() => {
               fetch("/api/auth").then((r) => r.json()).then(setAuthStatus);
             }} />
@@ -1157,9 +1158,13 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-3">
                   <KeyIcon className="size-5 text-accent" />
                   <div>
-                    <div className="font-medium text-sm">Signed in via cloud</div>
+                    <div className="font-medium text-sm">
+                      {isManagedMode ? "Managed deployment" : "Signed in via cloud"}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      Server-managed API key
+                      {isManagedMode
+                        ? "API keys and integrations are configured by the operator"
+                        : "Server-managed API key"}
                     </div>
                   </div>
                 </div>
@@ -1412,10 +1417,30 @@ export default function SettingsPage() {
       {/* Email Tab */}
       {tab === "email" && (
         <div className="space-y-8">
-          {/* Resend (Sending) */}
-          <ResendSection authStatus={authStatus} onUpdate={() => {
-            fetch("/api/auth").then((r) => r.json()).then(setAuthStatus);
-          }} fromEmail={settings.fromEmail} onFromEmailChange={(v) => setSettings({ ...settings, fromEmail: v })} />
+          {/* Resend (Sending) — hidden on managed deployments */}
+          {!isManagedMode && (
+            <ResendSection authStatus={authStatus} onUpdate={() => {
+              fetch("/api/auth").then((r) => r.json()).then(setAuthStatus);
+            }} fromEmail={settings.fromEmail} onFromEmailChange={(v) => setSettings({ ...settings, fromEmail: v })} />
+          )}
+          {isManagedMode && (
+            <section>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+                Outgoing Email
+              </h2>
+              <div className="p-4 rounded-xl bg-surface-1 border border-border">
+                <div className="flex items-center gap-3">
+                  <MailIcon className="size-5 text-accent" />
+                  <div>
+                    <div className="font-medium text-sm">Configured by operator</div>
+                    <div className="text-xs text-muted-foreground">
+                      Email sending credentials are managed server-side
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Gmail (Personal Email) */}
           <GmailSection />

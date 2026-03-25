@@ -7,6 +7,7 @@ import {
   saveGmailAccount,
 } from "@/lib/stores/gmail-store";
 import { addEmail, getAllEmails } from "@/lib/stores/inbox-store";
+import { requireAuth } from "@/lib/api-auth";
 
 interface GmailHeader {
   name: string;
@@ -67,6 +68,9 @@ function getBody(payload: Record<string, unknown>): { text: string; html: string
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   loadCommsEnv();
 
   const body = await req.json().catch(() => ({}));

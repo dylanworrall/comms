@@ -1,5 +1,8 @@
 
 .env.local
+.env.cloud
 
 .vercel
 .env.vercel
+
+dist/

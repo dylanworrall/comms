@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   loadCommsEnv();
 
   const url = new URL(req.url);
-  const origin = url.searchParams.get("state") || url.origin;
+  const origin = url.searchParams.get("state") || process.env.NEXT_PUBLIC_APP_URL || url.origin;
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
 

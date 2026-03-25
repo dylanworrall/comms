@@ -4,11 +4,14 @@ import { addActivity } from "@/lib/stores/activity";
 import { loadCommsEnv } from "@/lib/env";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
+import { requireAuth } from "@/lib/api-auth";
 
 // Load ~/.comms/.env on module init so RESEND_API_KEY is available
 loadCommsEnv();
 
 export async function GET(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   const url = new URL(req.url);
   const status = url.searchParams.get("status") as "pending" | "approved" | "rejected" | null;
 
@@ -25,6 +28,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const body = await req.json();
   const { id, decision } = body as { id: string; decision: "approved" | "rejected" };
 

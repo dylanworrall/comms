@@ -2,8 +2,25 @@ import { NextResponse } from "next/server";
 import { loadCommsEnv } from "@/lib/env";
 import { getAllCalls } from "@/lib/stores/calls-store";
 import { addActivity } from "@/lib/stores/activity";
+import {
+  getVoiceAgentConfig,
+  getAgentByPhoneNumber,
+  buildVoicePrompt,
+} from "@/lib/stores/voice-agent-store";
 
 loadCommsEnv();
+
+/** Build WebSocket URL with agent config encoded as query params */
+function buildWsUrl(
+  wsHost: string,
+  params: Record<string, string>,
+  systemPrompt: string
+): string {
+  const sp = new URLSearchParams(params);
+  sp.set("systemPrompt", Buffer.from(systemPrompt).toString("base64url"));
+  // Escape & for XML
+  return `wss://${wsHost}?${sp.toString().replace(/&/g, "&amp;")}`;
+}
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
@@ -22,15 +39,32 @@ export async function POST(req: Request) {
     });
   }
 
-  // TwiML for AI voice calls — connects to Gemini via WebSocket Media Stream
+  // TwiML for AI voice calls — connects to AI engine via WebSocket Media Stream
   if (type === "voice-ai") {
     const wsHost = process.env.VOICE_WS_HOST || "localhost:8765";
-    const callSid = url.searchParams.get("CallSid") || "";
     const purpose = url.searchParams.get("purpose") || "";
+
+    // Read Twilio form data for call details
+    const formData = await req.formData();
+    const callSid = String(formData.get("CallSid") || "");
+
+    // Look up agent config (default agent for outbound calls)
+    const agentConfig = getVoiceAgentConfig();
+    const systemPrompt = buildVoicePrompt(agentConfig, { purpose });
+
+    const wsUrl = buildWsUrl(wsHost, {
+      callSid,
+      purpose,
+      voiceEngine: agentConfig.voiceEngine || "gemini",
+      voice: agentConfig.voice,
+      agentName: agentConfig.agentName,
+      companyName: agentConfig.companyName,
+    }, systemPrompt);
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="wss://${wsHost}?callSid=${encodeURIComponent(callSid)}&amp;purpose=${encodeURIComponent(purpose)}">
+    <Stream url="${wsUrl}">
       <Parameter name="callSid" value="${callSid}" />
     </Stream>
   </Connect>
@@ -43,12 +77,31 @@ export async function POST(req: Request) {
   // TwiML for inbound calls — route to AI voice agent
   if (type === "inbound") {
     const wsHost = process.env.VOICE_WS_HOST || "localhost:8765";
-    const wsProtocol = wsHost.includes("localhost") ? "wss" : "wss";
+
+    // Read Twilio form data to determine which number was called
+    const formData = await req.formData();
+    const callSid = String(formData.get("CallSid") || "inbound");
+    const calledNumber = String(formData.get("To") || "");
+
+    // Look up agent assigned to this phone number, fall back to default
+    const agentConfig =
+      (calledNumber && getAgentByPhoneNumber(calledNumber)) ||
+      getVoiceAgentConfig();
+    const systemPrompt = buildVoicePrompt(agentConfig);
+
+    const wsUrl = buildWsUrl(wsHost, {
+      callSid,
+      voiceEngine: agentConfig.voiceEngine || "gemini",
+      voice: agentConfig.voice,
+      agentName: agentConfig.agentName,
+      companyName: agentConfig.companyName,
+    }, systemPrompt);
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say>Connecting you to your AI assistant.</Say>
   <Connect>
-    <Stream url="${wsProtocol}://${wsHost}?callSid=inbound">
+    <Stream url="${wsUrl}">
       <Parameter name="direction" value="inbound" />
     </Stream>
   </Connect>

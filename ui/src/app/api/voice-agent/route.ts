@@ -10,8 +10,11 @@ import {
   GEMINI_VOICES,
   OPENAI_VOICES,
 } from "@/lib/stores/voice-agent-store";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function GET() {
+  const authError = await requireAuth();
+  if (authError) return authError;
   const agents = getAllAgents();
   const templates = getTemplatePresets();
   return NextResponse.json({
@@ -23,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const body = await req.json();
 
   // Create new agent

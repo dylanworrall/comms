@@ -1301,7 +1301,7 @@ export default function InboxPage() {
             )}
 
             {/* ACCOUNTS */}
-            {gmailStatus && gmailStatus.accounts.length > 0 && (
+            {gmailStatus && gmailStatus.accounts?.length > 0 && (
               <FilterSection label="Accounts">
                 <div className="space-y-1">
                   {gmailStatus.accounts.map((account) => (

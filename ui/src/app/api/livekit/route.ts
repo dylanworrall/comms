@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadCommsEnv, saveCommsEnvVar } from "@/lib/env";
+import { requireAuth, isManaged } from "@/lib/api-auth";
 
 loadCommsEnv();
 
@@ -8,6 +9,8 @@ loadCommsEnv();
  * POST: Save LiveKit credentials
  */
 export async function GET() {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const url = process.env.LIVEKIT_URL;
@@ -22,6 +25,16 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
+  if (isManaged()) {
+    return NextResponse.json(
+      { error: "Credential management is disabled on managed deployments." },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json();
   const { livekitUrl, livekitApiKey, livekitApiSecret } = body as {
     livekitUrl?: string;

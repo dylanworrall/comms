@@ -9,10 +9,13 @@ import {
   isProcessed,
 } from "@/lib/stores/ai-settings-store";
 import { getAllEmails, updateEmailAI } from "@/lib/stores/inbox-store";
+import { requireAuth } from "@/lib/api-auth";
 
 const BATCH_SIZE = 10;
 
 export async function POST() {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const settings = getAISettings();

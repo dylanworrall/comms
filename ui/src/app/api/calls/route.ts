@@ -3,18 +3,22 @@ import { getCalls, addCall } from "@/lib/stores/calls-store";
 import { createApproval } from "@/lib/stores/approvals";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   const url = new URL(req.url);
   const limit = Number(url.searchParams.get("limit") ?? 50);
   const direction = url.searchParams.get("direction") as "inbound" | "outbound" | null;
 
   if (isConvexMode()) {
     const convex = getConvexClient()!;
-    const calls = await convex.query(api.calls.list, {
+    const raw = await convex.query(api.calls.list, {
       limit,
       direction: direction ?? undefined,
     });
+    const calls = raw.map(({ _id, _creationTime, ...rest }) => ({ id: _id, ...rest }));
     return NextResponse.json({ calls });
   }
 
@@ -23,6 +27,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const body = await req.json();
 
   // Direct save mode — used by useTwilioCall hook after a WebRTC call ends

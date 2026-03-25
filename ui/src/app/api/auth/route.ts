@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadCommsEnv, saveCommsEnvVar } from "@/lib/env";
+import { requireAuth, isManaged } from "@/lib/api-auth";
 
 loadCommsEnv();
 
@@ -9,6 +10,9 @@ function maskKey(key: string): string {
 }
 
 export async function GET() {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   loadCommsEnv(true);
 
   const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -34,6 +38,17 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
+  // Managed deployments: operator sets keys via env vars, not the UI
+  if (isManaged()) {
+    return NextResponse.json(
+      { error: "API key management is disabled on managed deployments. Keys are set by the operator." },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json();
   const { method } = body as { method: string };
 

@@ -16,14 +16,8 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from "@/components/ai-elements/tool";
-import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputSubmit,
-  PromptInputFooter,
-} from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { InboxIcon, UsersIcon, MailIcon, ShieldCheckIcon, AlertTriangleIcon, SettingsIcon, TerminalIcon, ChevronDownIcon } from "lucide-react";
+import { InboxIcon, UsersIcon, MailIcon, ShieldCheckIcon, AlertTriangleIcon, SettingsIcon, TerminalIcon, ChevronDownIcon, SendIcon, Loader2Icon, SquareIcon } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 
 const MODELS = [
@@ -83,6 +77,8 @@ export default function ChatPage() {
 
   const { messages, sendMessage, status, stop } = useChat({ transport });
   const [taglineIndex, setTaglineIndex] = useState(0);
+  const [promptValue, setPromptValue] = useState("");
+  const isGenerating = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     // In cloud mode, middleware handles auth — no need to check API key
@@ -188,27 +184,63 @@ export default function ChatPage() {
   }
 
   const promptInput = (
-    <PromptInput onSubmit={handleSubmit}>
-      <PromptInputTextarea
-        placeholder={sessionReady ? "Ask about contacts, emails, or approvals... (try /inbox, /contacts, /draft)" : "Loading session..."}
-        disabled={!sessionReady}
-      />
-      <PromptInputFooter>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!promptValue.trim() || !sessionReady) return;
+        handleSubmit({ text: promptValue });
+        setPromptValue("");
+      }}
+      className="bg-surface-1 border border-border/50 rounded-2xl overflow-hidden shadow-xl transition-all duration-200 focus-within:border-foreground/20 focus-within:ring-1 focus-within:ring-foreground/10"
+    >
+      <div className="px-4 pt-3 pb-2">
+        <input
+          type="text"
+          placeholder={sessionReady ? "Ask about contacts, emails, or approvals... (try /inbox, /contacts, /draft)" : "Loading session..."}
+          value={promptValue}
+          onChange={(e) => setPromptValue(e.target.value)}
+          className="w-full bg-transparent text-[15px] font-medium text-foreground placeholder:text-muted-foreground/40 outline-none"
+        />
+      </div>
+
+      <div className="flex items-center justify-between px-3 py-2 border-t border-border/50">
         <div className="relative inline-flex items-center">
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="appearance-none bg-surface-1 border border-border rounded-lg px-3 py-1.5 pr-7 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/15 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-accent/30"
+            className="appearance-none bg-transparent px-2 py-1 pr-6 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer focus:outline-none rounded-lg hover:bg-surface-2"
           >
             {MODELS.map((m) => (
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
-          <ChevronDownIcon className="absolute right-2 size-3 text-muted-foreground pointer-events-none" />
+          <ChevronDownIcon className="absolute right-1.5 size-3 text-muted-foreground pointer-events-none" />
         </div>
-        <PromptInputSubmit status={status} onStop={stop} />
-      </PromptInputFooter>
-    </PromptInput>
+
+        <div className="flex items-center gap-2">
+          <button
+            type={isGenerating ? "button" : "submit"}
+            onClick={isGenerating ? stop : undefined}
+            disabled={!isGenerating && (!promptValue.trim() || !sessionReady)}
+            className={`flex items-center justify-center h-8 w-8 rounded-lg transition-colors cursor-pointer ${
+              isGenerating
+                ? "bg-destructive text-white hover:bg-destructive/80"
+                : promptValue.trim() && sessionReady
+                  ? "bg-accent text-white hover:bg-accent/80"
+                  : "bg-surface-2 text-muted-foreground/30 cursor-not-allowed"
+            }`}
+          >
+            {status === "submitted" ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : isGenerating ? (
+              <SquareIcon className="size-4" />
+            ) : (
+              <SendIcon className="size-4" />
+            )}
+          </button>
+        </div>
+      </div>
+    </form>
   );
 
   const isEmpty = messages.length === 0;
@@ -217,58 +249,60 @@ export default function ChatPage() {
     <LayoutGroup>
       <div className="flex flex-col h-screen">
         {isEmpty ? (
-          /* Empty state — hero + prompt centered vertically */
+          /* Empty state — hero + prompt + chips centered */
           <div className="flex-1 flex flex-col items-center justify-center px-4">
-            <motion.h1
-              className="text-5xl font-bold text-accent hero-glow mb-4 tracking-tight"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              Comms
-            </motion.h1>
-
-            <div className="h-8 relative overflow-hidden mb-8">
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={taglineIndex}
-                  className="text-muted-foreground text-lg"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {TAGLINES[taglineIndex]}
-                </motion.p>
-              </AnimatePresence>
-            </div>
-
             <motion.div
-              className="flex flex-wrap justify-center gap-2 mb-6"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
+              transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="text-center mb-8"
+            >
+              <h1 className="text-[40px] font-bold tracking-tight text-accent mb-3">
+                Comms
+              </h1>
+              <div className="h-14 relative overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={taglineIndex}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="text-[15px] text-muted-foreground absolute inset-x-0 line-clamp-2 font-medium"
+                  >
+                    {TAGLINES[taglineIndex]}
+                  </motion.p>
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
+            <motion.div
+              layoutId="prompt-box"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="w-full max-w-2xl"
+            >
+              {promptInput}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="flex flex-wrap items-center justify-center gap-2 mt-4 max-w-2xl"
             >
               {SUGGESTIONS.map(({ label, icon: Icon, prompt }) => (
                 <button
                   key={label}
                   type="button"
                   onClick={() => handleSuggestion(prompt)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-surface-1 border border-border text-sm text-muted-foreground hover:text-foreground/80 hover:border-foreground/15 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-surface-1 text-[12px] font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 hover:bg-surface-2 transition-colors cursor-pointer"
                 >
-                  <Icon className="size-3.5" />
+                  <Icon className="size-3" />
                   {label}
                 </button>
               ))}
-            </motion.div>
-
-            {/* Prompt — centered under pills */}
-            <motion.div
-              layoutId="prompt-box"
-              className="w-full max-w-3xl [&_[data-slot=input-group]]:border-0 [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:bg-surface-1 [&_[data-slot=input-group]]:rounded-2xl"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            >
-              {promptInput}
             </motion.div>
           </div>
         ) : (
@@ -336,7 +370,7 @@ export default function ChatPage() {
 
             <motion.div
               layoutId="prompt-box"
-              className="px-4 pb-4 pt-2 max-w-3xl mx-auto w-full [&_[data-slot=input-group]]:border-0 [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:bg-surface-1 [&_[data-slot=input-group]]:rounded-2xl"
+              className="px-4 pb-4 pt-2 max-w-3xl mx-auto w-full"
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
               {promptInput}

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { removeGmailAccount } from "@/lib/stores/gmail-store";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   try {
     const body = await req.json();
     const email = body.email;

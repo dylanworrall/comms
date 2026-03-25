@@ -3,8 +3,11 @@ import { getEmails, getUnreadCount, markRead, addEmail, deleteEmail } from "@/li
 import { createApproval } from "@/lib/stores/approvals";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   const url = new URL(req.url);
   const folder = url.searchParams.get("folder") as "inbox" | "sent" | "drafts" | "trash" | null;
   const unreadOnly = url.searchParams.get("unreadOnly") === "true";
@@ -40,6 +43,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const body = await req.json();
 
   if (body.action === "markRead") {

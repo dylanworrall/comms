@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { loadCommsEnv } from "@/lib/env";
 import { addCall } from "@/lib/stores/calls-store";
 import { addActivity } from "@/lib/stores/activity";
+import { requireAuth } from "@/lib/api-auth";
 
 loadCommsEnv();
 
@@ -11,6 +12,8 @@ loadCommsEnv();
  * so the AI agent speaks directly to the person being called.
  */
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;

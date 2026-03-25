@@ -1,14 +1,22 @@
 {
-  "name": "comms-ui",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@soshilabs/comms",
+  "version": "0.1.2",
+  "main": "./dist/tools.cjs",
+  "files": [
+    "dist/",
+    "soshi.manifest.json"
+  ],
   "scripts": {
+    "build:tools": "esbuild src/lib/ai/tools/index.ts --bundle --outfile=dist/tools.cjs --platform=node --format=cjs --external:googleapis --external:@ai-sdk/* --external:ai --external:zod",
     "dev": "next dev --turbopack",
     "dev:voice": "npx tsx voice-server.ts",
     "dev:agent": "npx tsx livekit-agent.ts dev",
     "dev:all": "npx concurrently \"npm run dev\" \"npm run dev:agent\"",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "start:voice": "npx tsx voice-server.ts",
+    "deploy:web": "fly deploy -c fly.toml",
+    "deploy:voice": "fly deploy -c fly.voice.toml"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.54",
@@ -73,6 +81,7 @@
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
+    "esbuild": "^0.27.4",
     "shadcn": "^3.8.5",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",

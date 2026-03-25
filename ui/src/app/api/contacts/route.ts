@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getAllContacts, addContact, searchContacts } from "@/lib/stores/contacts";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   const url = new URL(req.url);
   const query = url.searchParams.get("q");
 
@@ -24,6 +27,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   const body = await req.json();
 
   if (isConvexMode()) {

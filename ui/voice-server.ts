@@ -4,6 +4,9 @@
  * Accepts Twilio Media Stream WebSocket connections and bridges
  * them to either OpenAI Realtime or Gemini Live API for AI voice calls.
  *
+ * Agent config (voice, engine, system prompt) is received via URL query
+ * params from the Twilio webhook, making this server fully stateless.
+ *
  * Audio pipelines:
  *   Gemini:  Twilio (mulaw 8kHz) → decode → upsample 16kHz → PCM 16-bit → Gemini Live API
  *            Gemini (PCM 24kHz) → low-pass → downsample 8kHz → mulaw → Twilio
@@ -14,15 +17,16 @@
  */
 
 import { WebSocketServer, WebSocket as WS } from "ws";
-import { config } from "dotenv";
 import { resolve } from "path";
 import { GoogleGenAI, Modality, type LiveServerMessage } from "@google/genai";
 import * as alawmulaw from "alawmulaw";
-import { getVoiceAgentConfig, getAgentByPhoneNumber, buildVoicePrompt } from "./src/lib/stores/voice-agent-store";
-import type { VoiceAgentConfig } from "./src/lib/stores/voice-agent-store";
 
-// Load env vars
-config({ path: resolve(__dirname, ".env.local") });
+// Load env vars from .env.local (local dev only — production uses Fly secrets)
+try {
+  require("dotenv").config({ path: resolve(process.cwd(), ".env.local") });
+} catch {
+  // dotenv not installed (production) — env vars set by host
+}
 
 const PORT = parseInt(process.env.VOICE_WS_PORT || "8765", 10);
 const GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -133,37 +137,37 @@ function pcm24kToMulaw8kBase64(pcmBase64: string): string {
   return Buffer.from(mulawSamples).toString("base64");
 }
 
-const wss = new WebSocketServer({ port: PORT });
+const wss = new WebSocketServer({ host: "0.0.0.0", port: PORT });
 
-console.log(`[Voice Server] WebSocket server listening on ws://localhost:${PORT}`);
+console.log(`[Voice Server] WebSocket server listening on ws://0.0.0.0:${PORT}`);
 
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "/", `ws://localhost:${PORT}`);
   const callSid = url.searchParams.get("callSid") || "unknown";
-  const purpose = decodeURIComponent(url.searchParams.get("purpose") || "");
+  const purpose = url.searchParams.get("purpose") || "";
 
-  console.log(`[Voice Server] New connection for call ${callSid}${purpose ? ` | purpose: ${purpose}` : ""}`);
+  // Parse agent config from URL params (set by the Twilio webhook)
+  const voiceEngine = (url.searchParams.get("voiceEngine") || "gemini") as "openai" | "gemini";
+  const voice = url.searchParams.get("voice") || (voiceEngine === "openai" ? "coral" : "Achird");
+  const agentName = url.searchParams.get("agentName") || "AI Assistant";
+  const companyName = url.searchParams.get("companyName") || "";
+  const systemPromptB64 = url.searchParams.get("systemPrompt") || "";
+  const systemPrompt = systemPromptB64
+    ? Buffer.from(systemPromptB64, "base64url").toString("utf-8")
+    : FALLBACK_PROMPT;
+
+  console.log(`[Voice Server] New connection for call ${callSid} | engine: ${voiceEngine}, voice: ${voice}, agent: ${agentName}`);
 
   let streamSid = "";
   let geminiSession: Awaited<ReturnType<InstanceType<typeof GoogleGenAI>["live"]["connect"]>> | null = null;
   let openaiWs: WS | null = null;
   let bridgeReady = false;
-  let activeEngine: "gemini" | "openai" = "gemini";
+  let activeEngine: "gemini" | "openai" = voiceEngine;
   const mediaBuffer: string[] = [];
 
-  // Resolve agent config once for the connection
-  function resolveAgent(): { agentConfig: VoiceAgentConfig; contactName: string } {
-    const toNumber = decodeURIComponent(url.searchParams.get("toNumber") || "");
-    const agentConfig = (toNumber && getAgentByPhoneNumber(toNumber)) || getVoiceAgentConfig();
-    const contactName = decodeURIComponent(url.searchParams.get("contactName") || "");
-    return { agentConfig, contactName };
-  }
-
-  function buildGreeting(agentConfig: VoiceAgentConfig, contactName: string): string {
-    const agentName = agentConfig.agentName;
-    const companyName = agentConfig.companyName;
+  function buildGreeting(): string {
     return purpose
-      ? `You are now on a live phone call. You are ${agentName} from ${companyName}. You called this person${contactName ? ` named ${contactName}` : ""} for the following purpose: ${purpose}. Start by greeting them, introducing yourself, and delivering your message naturally.`
+      ? `You are now on a live phone call. You are ${agentName} from ${companyName}. You called this person for the following purpose: ${purpose}. Start by greeting them, introducing yourself, and delivering your message naturally.`
       : `You are now on a live phone call. You are ${agentName} from ${companyName}. A caller just connected. Greet them warmly and ask how you can help.`;
   }
 
@@ -172,11 +176,7 @@ wss.on("connection", (ws, req) => {
   async function connectOpenAI() {
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set — cannot use OpenAI engine");
 
-    const { agentConfig, contactName } = resolveAgent();
-    const systemPrompt = buildVoicePrompt(agentConfig, { contactName, purpose }) || FALLBACK_PROMPT;
-    const voiceName = agentConfig.voice || "coral";
-
-    console.log(`[Voice Server] OpenAI Realtime — voice: ${voiceName}, agent: ${agentConfig.agentName}`);
+    console.log(`[Voice Server] OpenAI Realtime — voice: ${voice}, agent: ${agentName}`);
     activeEngine = "openai";
 
     const oaiUrl = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview";
@@ -196,7 +196,7 @@ wss.on("connection", (ws, req) => {
         session: {
           modalities: ["text", "audio"],
           instructions: systemPrompt,
-          voice: voiceName,
+          voice,
           input_audio_format: "g711_ulaw",
           output_audio_format: "pcm16",
           input_audio_transcription: { model: "whisper-1" },
@@ -210,7 +210,7 @@ wss.on("connection", (ws, req) => {
       }));
 
       // Send initial greeting as a conversation item
-      const greeting = buildGreeting(agentConfig, contactName);
+      const greeting = buildGreeting();
       openaiWs!.send(JSON.stringify({
         type: "conversation.item.create",
         item: {
@@ -281,11 +281,7 @@ wss.on("connection", (ws, req) => {
   async function connectGemini() {
     if (!GEMINI_API_KEY) throw new Error("GOOGLE_GENERATIVE_AI_API_KEY not set — cannot use Gemini engine");
 
-    const { agentConfig, contactName } = resolveAgent();
-    const systemPrompt = buildVoicePrompt(agentConfig, { contactName, purpose }) || FALLBACK_PROMPT;
-    const voiceName = agentConfig.voice || "Achird";
-
-    console.log(`[Voice Server] Gemini Live — voice: ${voiceName}, agent: ${agentConfig.agentName} (${agentConfig.activeTemplate})`);
+    console.log(`[Voice Server] Gemini Live — voice: ${voice}, agent: ${agentName}`);
     activeEngine = "gemini";
 
     const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY! });
@@ -331,7 +327,7 @@ wss.on("connection", (ws, req) => {
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: {
-              voiceName,
+              voiceName: voice,
             },
           },
         },
@@ -368,7 +364,7 @@ wss.on("connection", (ws, req) => {
     mediaBuffer.length = 0;
 
     // Initial greeting
-    const greeting = buildGreeting(agentConfig, contactName);
+    const greeting = buildGreeting();
     geminiSession.sendClientContent({
       turns: [{ role: "user", parts: [{ text: greeting }] }],
       turnComplete: true,
@@ -377,14 +373,12 @@ wss.on("connection", (ws, req) => {
     console.log(`[Voice Server] Greeting sent for call ${callSid}`);
   }
 
-  // ─── Connect dispatcher — picks engine based on agent config ───
+  // ─── Connect dispatcher — picks engine based on URL params ───
 
   async function connectEngine() {
-    const { agentConfig } = resolveAgent();
-    const engine = agentConfig.voiceEngine || "gemini";
-    console.log(`[Voice Server] Engine: ${engine} for call ${callSid}`);
+    console.log(`[Voice Server] Engine: ${voiceEngine} for call ${callSid}`);
 
-    if (engine === "openai") {
+    if (voiceEngine === "openai") {
       await connectOpenAI();
     } else {
       await connectGemini();

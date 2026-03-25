@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
 import { loadCommsEnv } from "@/lib/env";
+import { requireAuth } from "@/lib/api-auth";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -10,6 +11,9 @@ const SCOPES = [
 ];
 
 export async function GET(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   loadCommsEnv();
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -25,7 +29,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const origin = new URL(req.url).origin;
+  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
   const redirectUri = `${origin}/api/gmail/callback`;
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 

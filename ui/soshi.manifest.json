@@ -1,0 +1,411 @@
+{
+  "id": "comms",
+  "name": "Comms",
+  "icon": "MessageSquare",
+  "color": "#6366F1",
+  "description": "Unified communications hub — email, calls, contacts, calendar, and AI voice agents",
+
+  "configFields": [
+    { "key": "fromEmail", "label": "From Email", "type": "string", "group": "Email" },
+    { "key": "twilioFromNumber", "label": "Phone Number", "type": "string", "group": "Voice" },
+    { "key": "agentMode_send_email", "label": "Send Email Mode", "type": "enum", "options": ["auto", "draft", "manual"], "group": "Agent Modes" },
+    { "key": "agentMode_reply_to_email", "label": "Reply Email Mode", "type": "enum", "options": ["auto", "draft", "manual"], "group": "Agent Modes" },
+    { "key": "agentMode_initiate_call", "label": "Initiate Call Mode", "type": "enum", "options": ["auto", "draft", "manual"], "group": "Agent Modes" },
+    { "key": "agentMode_create_contact", "label": "Create Contact Mode", "type": "enum", "options": ["auto", "draft", "manual"], "group": "Agent Modes" },
+    { "key": "temperature", "label": "AI Temperature", "type": "number", "group": "AI" },
+    { "key": "anthropicModel", "label": "Model", "type": "string", "group": "AI" },
+    { "key": "notificationsEnabled", "label": "Enable Notifications", "type": "boolean", "group": "Notifications" }
+  ],
+
+  "credentials": [
+    { "key": "googleApiKey", "label": "Google AI API Key", "group": "AI Models" },
+    { "key": "openaiApiKey", "label": "OpenAI API Key", "group": "AI Models" },
+    { "key": "twilioAccountSid", "label": "Account SID", "group": "Twilio" },
+    { "key": "twilioAuthToken", "label": "Auth Token", "group": "Twilio" },
+    { "key": "twilioApiKeySid", "label": "API Key SID", "group": "Twilio" },
+    { "key": "twilioApiKeySecret", "label": "API Key Secret", "group": "Twilio" },
+    { "key": "googleClientId", "label": "Client ID", "group": "Gmail OAuth" },
+    { "key": "googleClientSecret", "label": "Client Secret", "group": "Gmail OAuth" },
+    { "key": "resendApiKey", "label": "Resend API Key", "group": "Email Sending" },
+    { "key": "anthropicApiKey", "label": "Anthropic API Key", "group": "AI Models" }
+  ],
+
+  "events": [
+    {
+      "name": "email_received",
+      "description": "Fires when a new email is synced into the inbox",
+      "schema": { "emailId": "string", "from": "string", "subject": "string" }
+    },
+    {
+      "name": "call_completed",
+      "description": "Fires when a phone call ends",
+      "schema": { "callId": "string", "contactName": "string", "duration": "number", "direction": "string" }
+    },
+    {
+      "name": "approval_created",
+      "description": "Fires when an action is queued for user approval",
+      "schema": { "approvalId": "string", "type": "string", "summary": "string" }
+    },
+    {
+      "name": "contact_created",
+      "description": "Fires when a new contact is added",
+      "schema": { "contactId": "string", "name": "string", "email": "string" }
+    }
+  ],
+
+  "actions": [
+    {
+      "name": "list_contacts",
+      "description": "List all contacts in the address book",
+      "tool": "list_contacts",
+      "params": { "limit": "number?" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "get_contact",
+      "description": "Get a single contact by ID",
+      "tool": "get_contact",
+      "params": { "id": "string" },
+      "risk": "read",
+      "estimatedMs": 50,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "create_contact",
+      "description": "Add a new contact to the address book",
+      "tool": "create_contact",
+      "params": { "name": "string", "email": "string", "phone": "string?", "company": "string?", "tags": "string[]?", "notes": "string?" },
+      "risk": "write",
+      "estimatedMs": 100,
+      "idempotent": false,
+      "requiredAuth": []
+    },
+    {
+      "name": "update_contact",
+      "description": "Update an existing contact by ID",
+      "tool": "update_contact",
+      "params": { "id": "string", "name": "string?", "email": "string?", "phone": "string?", "company": "string?", "tags": "string[]?", "notes": "string?" },
+      "risk": "write",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "search_contacts",
+      "description": "Search contacts by name, email, company, or tag",
+      "tool": "search_contacts",
+      "params": { "query": "string" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "list_emails",
+      "description": "List emails with optional folder, unread, and flagged filters",
+      "tool": "list_emails",
+      "params": { "folder": "string?", "unreadOnly": "boolean?", "flagged": "boolean?", "limit": "number?" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "read_email",
+      "description": "Read full email content by ID and mark as read",
+      "tool": "read_email",
+      "params": { "id": "string" },
+      "risk": "write",
+      "estimatedMs": 50,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "draft_email",
+      "description": "Create and save a local draft email",
+      "tool": "draft_email",
+      "params": { "to": "string", "subject": "string", "body": "string", "cc": "string?" },
+      "risk": "write",
+      "estimatedMs": 100,
+      "idempotent": false,
+      "requiredAuth": []
+    },
+    {
+      "name": "send_email",
+      "description": "Queue an email for sending (requires user approval)",
+      "tool": "send_email",
+      "params": { "to": "string", "subject": "string", "body": "string", "cc": "string?" },
+      "risk": "write",
+      "estimatedMs": 200,
+      "idempotent": false,
+      "requiredAuth": []
+    },
+    {
+      "name": "reply_to_email",
+      "description": "Reply to an existing email by ID (requires user approval)",
+      "tool": "reply_to_email",
+      "params": { "emailId": "string", "body": "string" },
+      "risk": "write",
+      "estimatedMs": 200,
+      "idempotent": false,
+      "requiredAuth": []
+    },
+    {
+      "name": "list_calls",
+      "description": "List call records with optional direction and contact filters",
+      "tool": "list_calls",
+      "params": { "limit": "number?", "direction": "string?", "contactName": "string?" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "get_call_transcript",
+      "description": "Get full transcript and details of a specific call",
+      "tool": "get_call_transcript",
+      "params": { "id": "string" },
+      "risk": "read",
+      "estimatedMs": 50,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "initiate_call",
+      "description": "Place an AI voice call to a phone number (requires user approval)",
+      "tool": "initiate_call",
+      "params": { "phoneNumber": "string", "contactName": "string?", "purpose": "string?" },
+      "risk": "write",
+      "estimatedMs": 3000,
+      "idempotent": false,
+      "requiredAuth": ["twilio"]
+    },
+    {
+      "name": "list_events",
+      "description": "List upcoming calendar events",
+      "tool": "list_events",
+      "params": { "limit": "number?" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "create_event",
+      "description": "Create a new calendar event",
+      "tool": "create_event",
+      "params": { "title": "string", "date": "string", "time": "string", "duration": "number", "attendees": "string[]?", "location": "string?" },
+      "risk": "write",
+      "estimatedMs": 200,
+      "idempotent": false,
+      "requiredAuth": []
+    },
+    {
+      "name": "check_availability",
+      "description": "Check calendar availability for a given date and time range",
+      "tool": "check_availability",
+      "params": { "date": "string", "startTime": "string?", "endTime": "string?" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "list_pending_approvals",
+      "description": "List approval items filtered by status",
+      "tool": "list_pending_approvals",
+      "params": { "status": "string?" },
+      "risk": "read",
+      "estimatedMs": 50,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "approve_action",
+      "description": "Approve a pending action by ID to allow it to proceed",
+      "tool": "approve_action",
+      "params": { "id": "string" },
+      "risk": "write",
+      "estimatedMs": 200,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "deny_action",
+      "description": "Deny a pending action by ID to prevent it from executing",
+      "tool": "deny_action",
+      "params": { "id": "string" },
+      "risk": "write",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "get_settings",
+      "description": "View current Comms Client settings including agent mode and model preferences",
+      "tool": "get_settings",
+      "params": {},
+      "risk": "read",
+      "estimatedMs": 50,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "search_gmail",
+      "description": "Search Gmail using Google search syntax",
+      "tool": "search_gmail",
+      "params": { "query": "string", "limit": "number?", "account": "string?" },
+      "risk": "read",
+      "estimatedMs": 2000,
+      "idempotent": true,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "read_gmail_thread",
+      "description": "Read a full Gmail thread with all messages and body text",
+      "tool": "read_gmail_thread",
+      "params": { "threadId": "string", "account": "string?" },
+      "risk": "read",
+      "estimatedMs": 2000,
+      "idempotent": true,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "sync_gmail",
+      "description": "Sync recent Gmail messages into the local inbox",
+      "tool": "sync_gmail",
+      "params": { "query": "string?", "limit": "number?", "account": "string?" },
+      "risk": "write",
+      "estimatedMs": 5000,
+      "idempotent": true,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "send_gmail",
+      "description": "Send an email via Gmail API (requires user approval)",
+      "tool": "send_gmail",
+      "params": { "to": "string", "subject": "string", "body": "string", "cc": "string?", "account": "string?" },
+      "risk": "write",
+      "estimatedMs": 3000,
+      "idempotent": false,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "draft_gmail",
+      "description": "Create a real Gmail draft in the user's Drafts folder",
+      "tool": "draft_gmail",
+      "params": { "to": "string", "subject": "string", "body": "string", "cc": "string?", "account": "string?" },
+      "risk": "write",
+      "estimatedMs": 2000,
+      "idempotent": false,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "trash_gmail",
+      "description": "Move a Gmail message to Trash",
+      "tool": "trash_gmail",
+      "params": { "messageId": "string", "account": "string?" },
+      "risk": "destructive",
+      "estimatedMs": 1000,
+      "idempotent": true,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "archive_gmail",
+      "description": "Archive a Gmail message (remove from inbox without deleting)",
+      "tool": "archive_gmail",
+      "params": { "messageId": "string", "account": "string?" },
+      "risk": "write",
+      "estimatedMs": 1000,
+      "idempotent": true,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "mark_gmail_read",
+      "description": "Mark a Gmail message as read or unread",
+      "tool": "mark_gmail_read",
+      "params": { "messageId": "string", "unread": "boolean?", "account": "string?" },
+      "risk": "write",
+      "estimatedMs": 1000,
+      "idempotent": true,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "reply_gmail",
+      "description": "Reply to a Gmail thread (requires user approval)",
+      "tool": "reply_gmail",
+      "params": { "threadId": "string", "body": "string", "account": "string?" },
+      "risk": "write",
+      "estimatedMs": 2000,
+      "idempotent": false,
+      "requiredAuth": ["google"]
+    },
+    {
+      "name": "process_emails",
+      "description": "Run AI processing on unprocessed inbox emails (auto-tag, classify, prioritize)",
+      "tool": "process_emails",
+      "params": {},
+      "risk": "write",
+      "estimatedMs": 10000,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "get_priority_emails",
+      "description": "Get emails sorted by AI priority score (highest first)",
+      "tool": "get_priority_emails",
+      "params": { "minPriority": "number?", "limit": "number?" },
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    },
+    {
+      "name": "summarize_inbox",
+      "description": "Get high-level inbox summary: totals, unread, priority items, sender breakdown, tag distribution",
+      "tool": "summarize_inbox",
+      "params": {},
+      "risk": "read",
+      "estimatedMs": 100,
+      "idempotent": true,
+      "requiredAuth": []
+    }
+  ],
+
+  "routerKeywords": [
+    "email", "gmail", "inbox", "send", "draft", "reply", "archive", "trash",
+    "call", "phone", "voice", "dial", "ring",
+    "contact", "address book", "people",
+    "calendar", "event", "meeting", "schedule", "availability",
+    "approval", "approve", "deny", "queue",
+    "settings", "config",
+    "priority", "triage", "summarize", "process"
+  ],
+
+  "examples": [
+    { "prompt": "search my gmail for messages from sarah", "description": "Search Gmail by sender" },
+    { "prompt": "send an email to john@acme.com about the proposal", "description": "Send email via approval queue" },
+    { "prompt": "call +1234567890 and tell them I'm running late", "description": "Place AI voice call with purpose" },
+    { "prompt": "add a new contact for Maya Patel at designhub.co", "description": "Create a contact" },
+    { "prompt": "what's in my inbox?", "description": "List inbox emails" },
+    { "prompt": "show me my priority emails", "description": "Get AI-prioritized emails" },
+    { "prompt": "what meetings do I have today?", "description": "List calendar events" },
+    { "prompt": "process my unread emails", "description": "Run AI email processing" },
+    { "prompt": "show pending approvals", "description": "List approval queue" }
+  ],
+
+  "oauthServices": [
+    { "id": "google", "name": "Google", "icon": "Mail", "description": "Access Gmail for sending, reading, and syncing emails" }
+  ],
+
+  "builtInServices": [
+    { "id": "twilio", "name": "Twilio", "icon": "Phone", "description": "Voice calls and phone number management" }
+  ],
+
+  "price": 0,
+  "whopPlanId": ""
+}

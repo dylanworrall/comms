@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
 import { getPolarBalance, createPolarCustomer } from "@/lib/polar";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   if (!isConvexMode()) {
     return NextResponse.json({ credits: Infinity, mode: "local", plan: "local" });
   }
@@ -47,6 +50,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authError = await requireAuth();
+  if (authError) return authError;
+
   if (!isConvexMode()) return NextResponse.json({ ok: true, mode: "local" });
 
   const { email, name } = await req.json();

@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { loadCommsEnv } from "@/lib/env";
 import { addCall } from "@/lib/stores/calls-store";
+import { requireAuth } from "@/lib/api-auth";
 
 loadCommsEnv();
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;

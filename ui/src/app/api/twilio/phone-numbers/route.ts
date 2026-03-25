@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { loadCommsEnv, saveCommsEnvVar } from "@/lib/env";
+import { requireAuth } from "@/lib/api-auth";
 
 loadCommsEnv();
 
 // List available phone numbers for purchase
 export async function GET(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -68,6 +71,8 @@ export async function GET(req: Request) {
 
 // Purchase a phone number
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -131,6 +136,8 @@ export async function POST(req: Request) {
 
 // Update an existing phone number's webhook to point to the AI agent
 export async function PATCH(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;

@@ -6,8 +6,11 @@ import { loadCommsEnv } from "@/lib/env";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
 import { ingestUsageEvent, getPolarBalance } from "@/lib/polar";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const authError = await requireAuth();
+  if (authError) return authError;
   loadCommsEnv(true);
 
   const body = await req.json();

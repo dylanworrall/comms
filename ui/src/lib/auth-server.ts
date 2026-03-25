@@ -4,13 +4,12 @@ const isCloudMode = !!process.env.NEXT_PUBLIC_CONVEX_URL;
 
 // Only initialize BetterAuth in cloud mode — local mode doesn't use Convex auth
 const authExports = isCloudMode
-  ? await (async () => {
-      const mod = await import("@convex-dev/better-auth/nextjs");
-      return mod.convexBetterAuthNextJs({
+  ? await import("@convex-dev/better-auth/nextjs").then((m) =>
+      m.convexBetterAuthNextJs({
         convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL!,
         convexSiteUrl: process.env.NEXT_PUBLIC_CONVEX_SITE_URL!,
-      });
-    })()
+      })
+    )
   : {
       handler: {
         GET: () => NextResponse.json({ error: "Auth not available in local mode" }, { status: 404 }),
