@@ -16,6 +16,13 @@ export interface AIProject {
   domain: string; // email domain to match, e.g. "myapp.com" — matches To/From
 }
 
+export interface AutopilotRules {
+  archivePromotions: boolean;
+  archiveNewsletters: boolean;
+  autoMarkReadUpdates: boolean;
+  autoSendDrafts: boolean; // auto-send AI draft replies (skip approval)
+}
+
 export interface AIEmailSettings {
   enabled: boolean;
   tags: AITag[];
@@ -23,6 +30,7 @@ export interface AIEmailSettings {
   autoRespond: boolean;
   systemPrompt: string;
   processedIds: string[];
+  autopilot?: AutopilotRules;
 }
 
 const DATA_DIR = process.env.COMMS_DATA_DIR ?? join(homedir(), ".comms", "data");

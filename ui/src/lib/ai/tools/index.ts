@@ -30,6 +30,9 @@ import {
 // ─── AI Email ───
 import { processEmailsTool, getPriorityEmailsTool, summarizeInboxTool } from "./ai-email";
 
+// ─── SMS ───
+import { sendSmsTool, listSmsTool } from "./sms";
+
 /**
  * Connector-spec export: flat array of all tools.
  * Each tool has { name, description, inputSchema, execute }.
@@ -79,6 +82,9 @@ export const tools = [
   processEmailsTool,
   getPriorityEmailsTool,
   summarizeInboxTool,
+  // SMS
+  sendSmsTool,
+  listSmsTool,
 ];
 
 /**

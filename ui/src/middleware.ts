@@ -5,7 +5,8 @@ const PUBLIC_PATHS = [
   "/login",
   "/api/auth",        // BetterAuth handler + key management (has its own guards)
   "/api/webhooks",    // Polar webhooks (signature-verified)
-  "/api/twilio/webhook", // Twilio webhooks (server-to-server)
+  "/api/twilio/webhook", // Twilio voice webhooks (server-to-server)
+  "/api/twilio/sms-webhook", // Twilio SMS webhooks (server-to-server)
   "/api/gmail/callback", // Google OAuth callback
 ];
 

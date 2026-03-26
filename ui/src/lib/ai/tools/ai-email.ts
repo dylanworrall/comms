@@ -14,7 +14,6 @@ export const processEmailsTool = {
     // Use internal import to call the processing logic directly
     const { getAllEmails, updateEmailAI } = await import("@/lib/stores/inbox-store");
     const { isProcessed, addProcessedId } = await import("@/lib/stores/ai-settings-store");
-    const { createAnthropic } = await import("@ai-sdk/anthropic");
     const { generateObject } = await import("ai");
 
     const allEmails = getAllEmails();
@@ -27,10 +26,11 @@ export const processEmailsTool = {
     const { loadCommsEnv } = await import("@/lib/env");
     loadCommsEnv(true);
 
-    const apiKey = process.env.CLAUDE_OAUTH_TOKEN || process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return { error: "No API key configured" };
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!apiKey) return { error: "No GOOGLE_GENERATIVE_AI_API_KEY configured" };
 
-    const anthropic = createAnthropic({ apiKey });
+    const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
+    const google = createGoogleGenerativeAI({ apiKey });
     const tagList = settings.tags.map((t) => `"${t.name}" (${t.points > 0 ? "+" : ""}${t.points}pts)`).join(", ");
 
     const batch = unprocessed.slice(0, 10);
@@ -39,8 +39,8 @@ export const processEmailsTool = {
     }).join("\n\n");
 
     const result = await generateObject({
-      model: anthropic("claude-sonnet-4-20250514"),
-      prompt: `Analyze these emails. Available tags: ${tagList}\n\nDomain types are pre-classified: "personal" = free email (@gmail.com, @yahoo.com, etc.), "business" = custom company domain. Business emails should generally score higher priority.\n\n${settings.systemPrompt}\n\n${emailSummaries}`,
+      model: google("gemini-2.5-flash"),
+      prompt: `Analyze these emails. Available tags: ${tagList}\n\nDomain types are pre-classified: "personal" = free email (@gmail.com, @yahoo.com, etc.), "business" = custom company domain. Business emails should generally score higher priority.\n\nAlso classify each email into exactly one category:\n- "primary": person-to-person messages, direct requests, time-sensitive items\n- "transactions": receipts, confirmations, shipping, payments, OTP codes\n- "updates": service notifications (GitHub, Slack, Jira), account alerts\n- "promotions": marketing, sales offers, product announcements\n- "newsletters": newsletter subscriptions, digests, blog roundups\n\n${settings.systemPrompt}\n\n${emailSummaries}`,
       schema: z.object({
         results: z.array(z.object({
           emailId: z.string(),
@@ -48,6 +48,7 @@ export const processEmailsTool = {
           senderType: z.enum(["human", "auto"]),
           aiSummary: z.string(),
           priority: z.number(),
+          category: z.enum(["primary", "transactions", "updates", "promotions", "newsletters"]),
           aiDraftReply: z.string().optional(),
         })),
       }),
@@ -62,6 +63,7 @@ export const processEmailsTool = {
           senderType: r.senderType,
           aiSummary: r.aiSummary,
           aiDraftReply: r.aiDraftReply,
+          category: r.category,
         });
         addProcessedId(r.emailId);
         processed++;
@@ -121,16 +123,22 @@ export const summarizeInboxTool = {
       }
     }
 
+    const categoryCounts: Record<string, number> = {};
+    for (const e of emails) {
+      if (e.category) categoryCounts[e.category] = (categoryCounts[e.category] || 0) + 1;
+    }
+
     const topPriority = emails
       .filter((e) => (e.priority ?? 0) > 0)
       .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
       .slice(0, 5)
-      .map((e) => ({ from: e.fromName, subject: e.subject, priority: e.priority, tags: e.tags }));
+      .map((e) => ({ from: e.fromName, subject: e.subject, priority: e.priority, tags: e.tags, category: e.category }));
 
     return {
       total: emails.length,
       unread,
       senders: { human, auto, unclassified },
+      categories: categoryCounts,
       tagCounts,
       topPriority,
     };
