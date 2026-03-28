@@ -1008,18 +1008,213 @@ function SMSSettingsSection() {
         </div>
       </section>
 
+      <SmsAgentSection />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SMS Agent Configuration Section
+// ---------------------------------------------------------------------------
+
+interface SmsAgentState {
+  agentName: string;
+  companyName: string;
+  autoReply: boolean;
+  autoReplyDelay: number;
+  systemPrompt: string;
+  optOutMessage: string;
+  signature: string;
+  workingHoursEnabled: boolean;
+  startHour: number;
+  endHour: number;
+  outsideHoursMessage: string;
+}
+
+function SmsAgentSection() {
+  const [agent, setAgent] = useState<SmsAgentState>({
+    agentName: "", companyName: "", autoReply: false, autoReplyDelay: 30,
+    systemPrompt: "", optOutMessage: "", signature: "",
+    workingHoursEnabled: false, startHour: 9, endHour: 17, outsideHoursMessage: "",
+  });
+  const [presets, setPresets] = useState<{ id: string; label: string; description: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/sms-agent").then((r) => r.json()).then((data) => {
+      const c = data.config;
+      setAgent({
+        agentName: c.agentName || "",
+        companyName: c.companyName || "",
+        autoReply: c.autoReply || false,
+        autoReplyDelay: c.autoReplyDelay ?? 30,
+        systemPrompt: c.systemPrompt || "",
+        optOutMessage: c.optOutMessage || "",
+        signature: c.signature || "",
+        workingHoursEnabled: c.workingHours?.enabled || false,
+        startHour: c.workingHours?.startHour ?? 9,
+        endHour: c.workingHours?.endHour ?? 17,
+        outsideHoursMessage: c.workingHours?.outsideHoursMessage || "",
+      });
+      setPresets(data.presets || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const applyPreset = async (presetId: string) => {
+    const res = await fetch("/api/sms-agent", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preset: presetId }),
+    });
+    const data = await res.json();
+    const c = data.config;
+    setAgent({
+      agentName: c.agentName, companyName: c.companyName,
+      autoReply: c.autoReply, autoReplyDelay: c.autoReplyDelay,
+      systemPrompt: c.systemPrompt, optOutMessage: c.optOutMessage,
+      signature: c.signature,
+      workingHoursEnabled: c.workingHours?.enabled || false,
+      startHour: c.workingHours?.startHour ?? 9, endHour: c.workingHours?.endHour ?? 17,
+      outsideHoursMessage: c.workingHours?.outsideHoursMessage || "",
+    });
+  };
+
+  const saveConfig = async () => {
+    setSaving(true);
+    await fetch("/api/sms-agent", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        agentName: agent.agentName, companyName: agent.companyName,
+        autoReply: agent.autoReply, autoReplyDelay: agent.autoReplyDelay,
+        systemPrompt: agent.systemPrompt, optOutMessage: agent.optOutMessage,
+        signature: agent.signature,
+        workingHours: {
+          enabled: agent.workingHoursEnabled,
+          startHour: agent.startHour, endHour: agent.endHour,
+          daysOfWeek: [1, 2, 3, 4, 5], timezone: "America/Chicago",
+          outsideHoursMessage: agent.outsideHoursMessage,
+        },
+      }),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const inputClass = "w-full bg-surface-2/40 rounded-xl px-3 py-2.5 text-sm text-foreground border border-border focus:outline-none focus:ring-1 focus:ring-accent/30 placeholder:text-foreground/20";
+
+  if (loading) return <div className="p-5 text-sm text-muted-foreground">Loading agent config...</div>;
+
+  return (
+    <>
       <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
-          How SMS Works
-        </h2>
-        <div className="p-5 rounded-xl bg-surface-1 border border-border text-xs text-muted-foreground space-y-2">
-          <p>SMS uses a <strong className="text-foreground/70">toll-free number</strong> separate from your voice call number.</p>
-          <p>US carriers require toll-free verification before messages can be delivered. This is a one-time process that takes 3-5 business days.</p>
-          <p>Once approved, you can send/receive texts from the Chat AI, the Texts page, or contact cards.</p>
-          <p>All outbound messages automatically include opt-out instructions as required by carrier regulations.</p>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">SMS Agent</h2>
+          <div className="flex items-center gap-2">
+            {saved && <span className="text-xs text-green-400">Saved!</span>}
+            <Button size="sm" onClick={saveConfig} disabled={saving} className="gap-1.5">
+              <SaveIcon className="size-3" /> {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Presets */}
+        <div className="flex gap-2 mb-4">
+          {presets.map((p) => (
+            <button key={p.id} type="button" onClick={() => applyPreset(p.id)}
+              className="px-3 py-2 rounded-xl bg-surface-1 border border-border text-xs text-muted-foreground hover:border-accent/30 hover:text-foreground transition-colors cursor-pointer text-left">
+              <div className="font-medium text-foreground/80">{p.label}</div>
+              <div className="text-[10px] text-muted-foreground/50 mt-0.5">{p.description}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5 rounded-xl bg-surface-1 border border-border space-y-4">
+          {/* Name + Company */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Agent Name</label>
+              <input type="text" value={agent.agentName} onChange={(e) => setAgent({ ...agent, agentName: e.target.value })} placeholder="Jordan" className={inputClass} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Company Name</label>
+              <input type="text" value={agent.companyName} onChange={(e) => setAgent({ ...agent, companyName: e.target.value })} placeholder="Soshi" className={inputClass} />
+            </div>
+          </div>
+
+          {/* Auto-reply toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-surface-2/20 border border-border">
+            <div>
+              <div className="text-sm font-medium">Auto-Reply to Inbound SMS</div>
+              <div className="text-xs text-muted-foreground mt-0.5">AI generates and sends replies to incoming texts automatically</div>
+            </div>
+            <button type="button" onClick={() => setAgent({ ...agent, autoReply: !agent.autoReply })}
+              className={cn("w-12 h-6 rounded-full transition-colors relative cursor-pointer", agent.autoReply ? "bg-accent" : "bg-surface-3")}>
+              <div className={cn("absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all shadow-sm", agent.autoReply ? "left-[26px]" : "left-0.5")} />
+            </button>
+          </div>
+
+          {/* System Prompt */}
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">System Prompt</label>
+            <textarea value={agent.systemPrompt} onChange={(e) => setAgent({ ...agent, systemPrompt: e.target.value })} rows={6}
+              placeholder="Instructions for how the AI agent should respond to texts..."
+              className={cn(inputClass, "resize-none font-mono text-xs")} />
+          </div>
+
+          {/* Signature */}
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Message Signature</label>
+            <input type="text" value={agent.signature} onChange={(e) => setAgent({ ...agent, signature: e.target.value })} placeholder="- Jordan from Soshi" className={inputClass} />
+          </div>
+
+          {/* Opt-out message */}
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Opt-Out Reply</label>
+            <input type="text" value={agent.optOutMessage} onChange={(e) => setAgent({ ...agent, optOutMessage: e.target.value })}
+              placeholder="You've been unsubscribed. No more messages will be sent." className={inputClass} />
+          </div>
+
+          {/* Working Hours */}
+          <div className="space-y-3 p-3 rounded-lg bg-surface-2/20 border border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Working Hours</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Only auto-reply during business hours</div>
+              </div>
+              <button type="button" onClick={() => setAgent({ ...agent, workingHoursEnabled: !agent.workingHoursEnabled })}
+                className={cn("w-12 h-6 rounded-full transition-colors relative cursor-pointer", agent.workingHoursEnabled ? "bg-accent" : "bg-surface-3")}>
+                <div className={cn("absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all shadow-sm", agent.workingHoursEnabled ? "left-[26px]" : "left-0.5")} />
+              </button>
+            </div>
+            {agent.workingHoursEnabled && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Start</label>
+                    <select value={agent.startHour} onChange={(e) => setAgent({ ...agent, startHour: Number(e.target.value) })} className={cn(inputClass, "cursor-pointer")}>
+                      {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">End</label>
+                    <select value={agent.endHour} onChange={(e) => setAgent({ ...agent, endHour: Number(e.target.value) })} className={cn(inputClass, "cursor-pointer")}>
+                      {Array.from({ length: 24 }, (_, i) => <option key={i} value={i}>{i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Outside Hours Message</label>
+                  <input type="text" value={agent.outsideHoursMessage} onChange={(e) => setAgent({ ...agent, outsideHoursMessage: e.target.value })}
+                    placeholder="Thanks for your message! We'll get back to you during business hours." className={inputClass} />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
