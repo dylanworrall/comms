@@ -24,6 +24,8 @@ import {
   TrashIcon,
   Loader2Icon,
   ZapIcon,
+  MessageCircleIcon,
+  RefreshCwIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession, authClient } from "@/lib/auth-client";
@@ -47,7 +49,7 @@ interface AuthStatus {
   resend: { connected: boolean; masked: string | null; fromEmail: string | null };
 }
 
-type Tab = "general" | "billing" | "email" | "voice" | "notifications" | "ai-automations";
+type Tab = "general" | "billing" | "email" | "sms" | "voice" | "notifications" | "ai-automations";
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
   list_contacts: "List all contacts",
@@ -73,6 +75,8 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
   get_space: "Get space details",
   create_space: "Create spaces",
   get_settings: "View settings",
+  send_sms: "Send text messages",
+  list_sms: "List SMS conversations",
 };
 
 const MODE_COLORS: Record<AgentMode, string> = {
@@ -799,6 +803,167 @@ interface AvailableNumber {
   capabilities: { voice: boolean; sms: boolean; mms: boolean };
 }
 
+// ---------------------------------------------------------------------------
+// SMS Settings Section
+// ---------------------------------------------------------------------------
+
+function SMSSettingsSection() {
+  const [smsNumber, setSmsNumber] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [buying, setBuying] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Load current SMS number from auth/status
+  useEffect(() => {
+    fetch("/api/auth")
+      .then((r) => r.json())
+      .then((data) => {
+        setSmsNumber(data.twilio?.smsNumber ?? data.twilio?.fromNumber ?? null);
+      })
+      .catch(() => {});
+    // Check toll-free verification status
+    fetch("/api/twilio/sms-status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.smsNumber) setSmsNumber(data.smsNumber);
+        if (data.verificationStatus) setVerificationStatus(data.verificationStatus);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const buyTollFree = async () => {
+    setBuying(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/twilio/sms-setup", { method: "POST" });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setSmsNumber(data.phoneNumber);
+        setVerificationStatus(data.verificationStatus || "PENDING_REVIEW");
+        setSuccess(`Toll-free number ${data.phoneNumber} purchased and verification submitted!`);
+      }
+    } catch {
+      setError("Failed to set up SMS number");
+    }
+    setBuying(false);
+  };
+
+  const checkStatus = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch("/api/twilio/sms-status");
+      const data = await res.json();
+      if (data.verificationStatus) setVerificationStatus(data.verificationStatus);
+    } catch { /* silent */ }
+    setChecking(false);
+  };
+
+  const statusColor = verificationStatus === "TWILIO_APPROVED"
+    ? "text-green-400"
+    : verificationStatus === "TWILIO_REJECTED"
+      ? "text-destructive"
+      : "text-amber-400";
+
+  return (
+    <div className="space-y-8">
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+          SMS Number
+        </h2>
+        <div className="p-5 rounded-xl bg-surface-1 border border-border space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2Icon className="size-4 animate-spin" />
+              Loading SMS configuration...
+            </div>
+          ) : smsNumber ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground">{smsNumber}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Toll-free SMS number</div>
+                </div>
+                <Badge variant="secondary" className={cn("text-xs border-0", statusColor)}>
+                  {verificationStatus || "Unknown"}
+                </Badge>
+              </div>
+              {verificationStatus && verificationStatus !== "TWILIO_APPROVED" && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                  <AlertTriangleIcon className="size-4 text-amber-400 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-xs text-amber-400 font-medium">Verification Pending</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      SMS delivery is blocked until Twilio approves your toll-free verification. This typically takes 3-5 business days.
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={checkStatus} disabled={checking} className="shrink-0">
+                    {checking ? <Loader2Icon className="size-3 animate-spin" /> : <RefreshCwIcon className="size-3" />}
+                    Check
+                  </Button>
+                </div>
+              )}
+              {verificationStatus === "TWILIO_APPROVED" && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+                  <CheckCircleIcon className="size-4 text-green-400" />
+                  <span className="text-xs text-green-400 font-medium">SMS is active and delivering</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <MessageCircleIcon className="size-8 text-muted-foreground/20 mx-auto mb-3" />
+              <div className="text-sm text-muted-foreground mb-1">No SMS number configured</div>
+              <div className="text-xs text-muted-foreground/60 mb-4">
+                Get a toll-free number to send and receive text messages. Includes automatic carrier verification.
+              </div>
+              <Button size="sm" onClick={buyTollFree} disabled={buying} className="gap-2">
+                {buying ? <Loader2Icon className="size-3.5 animate-spin" /> : <PlusIcon className="size-3.5" />}
+                {buying ? "Setting up..." : "Get Toll-Free SMS Number"}
+              </Button>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+              <XCircleIcon className="size-4 text-destructive" />
+              <span className="text-xs text-destructive">{error}</span>
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+              <CheckCircleIcon className="size-4 text-green-400" />
+              <span className="text-xs text-green-400">{success}</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+          How SMS Works
+        </h2>
+        <div className="p-5 rounded-xl bg-surface-1 border border-border text-xs text-muted-foreground space-y-2">
+          <p>SMS uses a <strong className="text-foreground/70">toll-free number</strong> separate from your voice call number.</p>
+          <p>US carriers require toll-free verification before messages can be delivered. This is a one-time process that takes 3-5 business days.</p>
+          <p>Once approved, you can send/receive texts from the Chat AI, the Texts page, or contact cards.</p>
+          <p>All outbound messages automatically include opt-out instructions as required by carrier regulations.</p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Twilio Voice Section
+// ---------------------------------------------------------------------------
+
 function TwilioVoiceSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -1107,6 +1272,7 @@ export default function SettingsPage() {
     { value: "general", label: "General", icon: SettingsIcon },
     ...(isCloudMode ? [{ value: "billing" as Tab, label: "Billing", icon: CreditCardIcon }] : []),
     { value: "email", label: "Email", icon: MailIcon },
+    { value: "sms" as Tab, label: "SMS", icon: MessageCircleIcon },
     { value: "voice", label: "Voice", icon: PhoneIcon },
     { value: "notifications", label: "Notifications", icon: BellIcon },
     { value: "ai-automations" as Tab, label: "AI Automations", icon: SparklesIcon },
@@ -1445,6 +1611,11 @@ export default function SettingsPage() {
           {/* Gmail (Personal Email) */}
           <GmailSection />
         </div>
+      )}
+
+      {/* SMS Tab */}
+      {tab === "sms" && (
+        <SMSSettingsSection />
       )}
 
       {/* Voice Tab */}
