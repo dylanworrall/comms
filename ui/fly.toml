@@ -5,6 +5,8 @@ primary_region = "dfw"
   dockerfile = "Dockerfile"
   [build.args]
     NEXT_PUBLIC_COMMS_MANAGED = "true"
+    NEXT_PUBLIC_CONVEX_URL = "https://blessed-tern-353.convex.cloud"
+    NEXT_PUBLIC_CONVEX_SITE_URL = "https://blessed-tern-353.convex.site"
 
 [http_service]
   internal_port = 3000
@@ -13,4 +15,6 @@ primary_region = "dfw"
 [env]
   NODE_ENV = "production"
   NEXT_PUBLIC_APP_URL = "https://comms.soshi.dev"
+  NEXT_PUBLIC_CONVEX_URL = "https://blessed-tern-353.convex.cloud"
+  NEXT_PUBLIC_CONVEX_SITE_URL = "https://blessed-tern-353.convex.site"
   VOICE_WS_HOST = "voice.soshi.dev"
