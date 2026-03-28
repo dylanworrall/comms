@@ -2,6 +2,14 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
+export type ContactStatus = "lead" | "active" | "warm" | "cold" | "closed";
+
+export interface TouchPoint {
+  type: "email_sent" | "email_received" | "call" | "sms_sent" | "sms_received" | "meeting" | "note";
+  summary: string;
+  timestamp: string;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -14,6 +22,13 @@ export interface Contact {
   avatar?: string;
   createdAt: string;
   updatedAt: string;
+  // CRM fields
+  status?: ContactStatus;
+  priority?: number; // 1-5, 5 = hottest
+  nextFollowUp?: string; // ISO date
+  touchPoints?: TouchPoint[];
+  dealValue?: number;
+  source?: string; // how you met: "conference", "inbound", "referral", etc.
 }
 
 const DATA_DIR = process.env.COMMS_DATA_DIR ?? join(homedir(), ".comms", "data");
@@ -146,6 +161,18 @@ export function updateContact(
   if (idx === -1) return null;
   const contact = contacts[idx];
   Object.assign(contact, data, { updatedAt: new Date().toISOString() });
+  saveAll(contacts);
+  return contact;
+}
+
+export function addTouchPoint(id: string, touchPoint: TouchPoint): Contact | null {
+  const contacts = seedIfEmpty();
+  const contact = contacts.find((c) => c.id === id);
+  if (!contact) return null;
+  if (!contact.touchPoints) contact.touchPoints = [];
+  contact.touchPoints.push(touchPoint);
+  contact.lastContacted = touchPoint.timestamp;
+  contact.updatedAt = new Date().toISOString();
   saveAll(contacts);
   return contact;
 }
