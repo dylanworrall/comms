@@ -131,9 +131,12 @@ export default defineSchema({
     email: v.string(),
     name: v.string(),
     plan: v.optional(v.union(v.literal("free"), v.literal("pro"), v.literal("business"))),
+    messageCount: v.optional(v.number()),
+    periodStart: v.optional(v.string()),
+    whopMembershipId: v.optional(v.string()),
+    // Legacy fields
     cachedBalance: v.optional(v.number()),
     polarCustomerId: v.optional(v.string()),
-    // Legacy fields (ignored, kept for backwards compat with existing docs)
     credits: v.optional(v.number()),
     includedCredits: v.optional(v.number()),
     includedCreditsUsed: v.optional(v.number()),

@@ -39,6 +39,8 @@
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
     "@twilio/voice-sdk": "^2.18.0",
+    "@whop/checkout": "^0.0.52",
+    "@whop/sdk": "^0.0.35",
     "@xyflow/react": "^12.10.1",
     "ai": "^6.0.116",
     "alawmulaw": "^6.0.0",
