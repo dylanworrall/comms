@@ -1,7 +1,7 @@
-import { addSms } from "@/lib/stores/sms-store";
+import { addSms, getSmsConversation } from "@/lib/stores/sms-store";
 import { addActivity } from "@/lib/stores/activity";
 import { getSmsAgentConfig, buildSmsPrompt } from "@/lib/stores/sms-agent-store";
-import { getSmsConversation } from "@/lib/stores/sms-store";
+import { logInteraction } from "@/lib/stores/contacts";
 
 export async function POST(req: Request) {
   const formData = await req.formData();
@@ -30,6 +30,12 @@ export async function POST(req: Request) {
     `SMS from ${from}: ${body.slice(0, 80)}${body.length > 80 ? "..." : ""}`,
     { from, messageSid }
   );
+
+  // Log touch point on matching contact
+  logInteraction({
+    phone: from,
+    touchPoint: { type: "sms_received", summary: `Received: ${body.slice(0, 60)}`, timestamp: new Date().toISOString() },
+  });
 
   // Check for opt-out keywords
   const lower = body.toLowerCase();

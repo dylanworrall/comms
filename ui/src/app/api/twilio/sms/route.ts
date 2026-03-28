@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { loadCommsEnv } from "@/lib/env";
-import { addSms, getAllSms, getSmsConversation, getRecentConversations } from "@/lib/stores/sms-store";
+import { addSms, getSmsConversation, getRecentConversations } from "@/lib/stores/sms-store";
+import { logInteraction } from "@/lib/stores/contacts";
 import { requireAuth } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
@@ -73,6 +74,12 @@ export async function POST(req: Request) {
       status: "sent",
       timestamp: new Date().toISOString(),
       twilioSid: result.sid,
+    });
+
+    // Log touch point on matching contact
+    logInteraction({
+      phone: to,
+      touchPoint: { type: "sms_sent", summary: `Sent: ${message.slice(0, 60)}`, timestamp: new Date().toISOString() },
     });
 
     return NextResponse.json({ sms, twilioSid: result.sid });

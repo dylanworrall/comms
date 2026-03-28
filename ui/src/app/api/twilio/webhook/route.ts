@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { loadCommsEnv } from "@/lib/env";
 import { getAllCalls } from "@/lib/stores/calls-store";
 import { addActivity } from "@/lib/stores/activity";
+import { logInteraction } from "@/lib/stores/contacts";
 import {
   getVoiceAgentConfig,
   getAgentByPhoneNumber,
@@ -164,6 +165,7 @@ export async function POST(req: Request) {
         );
 
         const duration = parseInt(payload.CallDuration || "0", 10);
+        const durationStr = duration > 60 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : `${duration}s`;
 
         if (matchingCall) {
           addActivity(
@@ -171,12 +173,21 @@ export async function POST(req: Request) {
             `Call ended: ${matchingCall.contactName} (${matchingCall.phoneNumber}), duration: ${duration}s`,
             { callSid, duration, callId: matchingCall.id }
           );
+          logInteraction({
+            phone: matchingCall.phoneNumber,
+            name: matchingCall.contactName,
+            touchPoint: { type: "call", summary: `Call (${durationStr}) with ${matchingCall.contactName}`, timestamp: new Date().toISOString() },
+          });
         } else {
           addActivity(
             "call_ended",
             `Call ended: ${payload.From} -> ${payload.To}, duration: ${duration}s`,
             { callSid, duration }
           );
+          logInteraction({
+            phone: payload.To || payload.From,
+            touchPoint: { type: "call", summary: `Call (${durationStr}): ${payload.From} → ${payload.To}`, timestamp: new Date().toISOString() },
+          });
         }
         break;
       }

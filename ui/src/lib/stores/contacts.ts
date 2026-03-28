@@ -165,6 +165,57 @@ export function updateContact(
   return contact;
 }
 
+/** Find a contact by email address */
+export function findContactByEmail(email: string): Contact | null {
+  if (!email) return null;
+  const normalized = email.toLowerCase().trim();
+  return seedIfEmpty().find((c) => c.email.toLowerCase() === normalized) ?? null;
+}
+
+/** Find a contact by phone number (normalizes digits) */
+export function findContactByPhone(phone: string): Contact | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return null;
+  return seedIfEmpty().find((c) => {
+    if (!c.phone) return false;
+    const cDigits = c.phone.replace(/\D/g, "");
+    return cDigits === digits || cDigits.endsWith(digits) || digits.endsWith(cDigits);
+  }) ?? null;
+}
+
+/**
+ * Log a touch point on a contact matched by email or phone.
+ * If no contact exists and autoCreate is true, creates one.
+ * Returns the contact if found/created, null otherwise.
+ */
+export function logInteraction(opts: {
+  email?: string;
+  phone?: string;
+  name?: string;
+  touchPoint: TouchPoint;
+  autoCreate?: boolean;
+}): Contact | null {
+  let contact = opts.email ? findContactByEmail(opts.email) : null;
+  if (!contact && opts.phone) contact = findContactByPhone(opts.phone);
+
+  if (!contact && opts.autoCreate && (opts.email || opts.phone)) {
+    contact = addContact({
+      name: opts.name || opts.email?.split("@")[0] || opts.phone || "Unknown",
+      email: opts.email || "",
+      phone: opts.phone,
+      tags: ["auto-added"],
+      status: "lead",
+      priority: 2,
+    });
+  }
+
+  if (contact) {
+    return addTouchPoint(contact.id, opts.touchPoint);
+  }
+  return null;
+}
+
 export function addTouchPoint(id: string, touchPoint: TouchPoint): Contact | null {
   const contacts = seedIfEmpty();
   const contact = contacts.find((c) => c.id === id);

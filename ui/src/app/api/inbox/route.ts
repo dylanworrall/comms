@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEmails, getUnreadCount, markRead, addEmail, deleteEmail } from "@/lib/stores/inbox-store";
 import { createApproval } from "@/lib/stores/approvals";
+import { logInteraction } from "@/lib/stores/contacts";
 import { getConvexClient, isConvexMode } from "@/lib/convex-server";
 import { api } from "@/lib/convex-api";
 import { requireAuth } from "@/lib/api-auth";
@@ -79,6 +80,10 @@ export async function POST(req: Request) {
     }
     const approval = createApproval("send_email", {
       to: body.to, cc: body.cc || undefined, subject: body.subject, body: body.body,
+    });
+    logInteraction({
+      email: body.to,
+      touchPoint: { type: "email_sent", summary: `Reply queued: ${body.subject?.slice(0, 50) || "(no subject)"}`, timestamp: new Date().toISOString() },
     });
     return NextResponse.json({ approval, needsApproval: true });
   }

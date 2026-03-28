@@ -7,6 +7,7 @@ import {
   saveGmailAccount,
 } from "@/lib/stores/gmail-store";
 import { addEmail, getAllEmails } from "@/lib/stores/inbox-store";
+import { logInteraction } from "@/lib/stores/contacts";
 import { requireAuth } from "@/lib/api-auth";
 
 interface GmailHeader {
@@ -209,6 +210,18 @@ export async function POST(req: Request) {
 
         existingThreadIds.add(gmailMsgId);
         imported++;
+
+        // Log touch point on matching contact
+        const ts = date || new Date(Number(msg.internalDate) || Date.now()).toISOString();
+        logInteraction({
+          email: isSent ? (to || "").split(",")[0].trim() : fromEmail,
+          name: isSent ? undefined : (fromName || undefined),
+          touchPoint: {
+            type: isSent ? "email_sent" : "email_received",
+            summary: `${isSent ? "Sent" : "Received"}: ${subject}`,
+            timestamp: ts,
+          },
+        });
       } catch (msgErr) {
         // Skip individual message errors, continue syncing
         console.error(`Failed to fetch message ${msgRef.id}:`, msgErr);
