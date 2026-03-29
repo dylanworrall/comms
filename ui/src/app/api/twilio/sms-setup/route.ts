@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadCommsEnv, saveCommsEnvVar } from "@/lib/env";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAuth, getCurrentUser } from "@/lib/api-auth";
+import { updateUser } from "@/lib/stores/auth-store";
 
 export async function POST(req: Request) {
   const authError = await requireAuth();
@@ -49,7 +50,14 @@ export async function POST(req: Request) {
       } : {}),
     });
 
-    // 3. Save as SMS number
+    // 3. Save as SMS number — per-user in cloud mode, global fallback
+    const user = await getCurrentUser();
+    if (user) {
+      updateUser(user.id, {
+        smsNumber: purchased.phoneNumber,
+        smsNumberSid: purchased.sid,
+      });
+    }
     saveCommsEnvVar("TWILIO_SMS_NUMBER", purchased.phoneNumber);
     process.env.TWILIO_SMS_NUMBER = purchased.phoneNumber;
 
@@ -85,6 +93,12 @@ export async function POST(req: Request) {
       });
 
       verificationStatus = verification.status;
+      if (user) {
+        updateUser(user.id, {
+          smsVerificationSid: verification.sid,
+          smsVerificationStatus: verification.status,
+        });
+      }
       saveCommsEnvVar("TWILIO_TF_VERIFICATION_SID", verification.sid);
     } catch (vErr) {
       console.error("Toll-free verification submission failed:", vErr);

@@ -23,6 +23,12 @@ export interface AuthUser {
   messageCount: number;
   periodStart: string;
   whopMembershipId?: string;
+  // Per-user phone numbers
+  voiceNumber?: string; // Twilio local number for calls
+  smsNumber?: string; // Twilio toll-free number for SMS
+  smsNumberSid?: string; // Twilio SID for the SMS number
+  smsVerificationSid?: string; // Toll-free verification SID
+  smsVerificationStatus?: string;
   createdAt: string;
 }
 
