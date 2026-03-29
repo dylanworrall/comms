@@ -30,7 +30,21 @@
       "WebFetch(domain:docs.cartesia.ai)",
       "Bash(cd:*)",
       "Bash(ls:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(npm view:*)",
+      "Bash(grep:*)",
+      "Bash(fly auth:*)",
+      "Bash(fly apps:*)",
+      "Bash(fly secrets:*)",
+      "Bash(fly deploy:*)",
+      "Bash(fly status:*)",
+      "Bash(fly logs:*)",
+      "Bash(fly machine:*)",
+      "Bash(fly scale:*)",
+      "Bash(fly certs:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm whoami:*)",
+      "Bash(npm publish:*)"
     ]
   }
 }
