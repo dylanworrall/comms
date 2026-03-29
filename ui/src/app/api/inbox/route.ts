@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { getEmails, getUnreadCount, markRead, addEmail, deleteEmail } from "@/lib/stores/inbox-store";
 import { createApproval } from "@/lib/stores/approvals";
 import { logInteraction } from "@/lib/stores/contacts";
-import { getConvexClient, isConvexMode } from "@/lib/convex-server";
-import { api } from "@/lib/convex-api";
 import { requireAuth } from "@/lib/api-auth";
 
 export async function GET(req: Request) {
@@ -17,18 +15,6 @@ export async function GET(req: Request) {
   const senderType = url.searchParams.get("senderType") as "human" | "auto" | null;
   const tag = url.searchParams.get("tag");
   const sortBy = url.searchParams.get("sortBy") as "time" | "priority" | null;
-
-  if (isConvexMode()) {
-    const convex = getConvexClient()!;
-    const emails = await convex.query(api.emails.list, {
-      folder: folder ?? undefined,
-      unreadOnly: unreadOnly || undefined,
-      flagged: flagged || undefined,
-      limit,
-    });
-    const unreadCount = await convex.query(api.emails.unreadCount, {});
-    return NextResponse.json({ emails, unreadCount });
-  }
 
   const emails = getEmails({
     folder: folder ?? undefined,
@@ -50,34 +36,16 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   if (body.action === "markRead") {
-    if (isConvexMode()) {
-      const convex = getConvexClient()!;
-      await convex.mutation(api.emails.markRead, { id: body.id });
-      return NextResponse.json({ success: true });
-    }
     markRead(body.id);
     return NextResponse.json({ success: true });
   }
 
   if (body.action === "delete") {
-    if (isConvexMode()) {
-      const convex = getConvexClient()!;
-      await convex.mutation(api.emails.remove, { id: body.id });
-      return NextResponse.json({ success: true });
-    }
     const deleted = deleteEmail(body.id);
     return NextResponse.json({ success: deleted });
   }
 
   if (body.action === "compose") {
-    if (isConvexMode()) {
-      const convex = getConvexClient()!;
-      const approval = await convex.mutation(api.approvals.create, {
-        type: "send_email",
-        data: { to: body.to, cc: body.cc || undefined, subject: body.subject, body: body.body },
-      });
-      return NextResponse.json({ approval, needsApproval: true });
-    }
     const approval = createApproval("send_email", {
       to: body.to, cc: body.cc || undefined, subject: body.subject, body: body.body,
     });

@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { getApprovals, resolveApproval } from "@/lib/stores/approvals";
 import { addActivity } from "@/lib/stores/activity";
 import { loadCommsEnv } from "@/lib/env";
-import { getConvexClient, isConvexMode } from "@/lib/convex-server";
-import { api } from "@/lib/convex-api";
 import { requireAuth } from "@/lib/api-auth";
 
 // Load ~/.comms/.env on module init so RESEND_API_KEY is available
@@ -14,14 +12,6 @@ export async function GET(req: Request) {
   if (authError) return authError;
   const url = new URL(req.url);
   const status = url.searchParams.get("status") as "pending" | "approved" | "rejected" | null;
-
-  if (isConvexMode()) {
-    const convex = getConvexClient()!;
-    const approvals = await convex.query(api.approvals.list, {
-      status: status ?? undefined,
-    });
-    return NextResponse.json({ approvals });
-  }
 
   const items = getApprovals(status ?? undefined);
   return NextResponse.json({ approvals: items });
@@ -36,55 +26,6 @@ export async function POST(req: Request) {
 
   if (!id || !decision) {
     return NextResponse.json({ error: "Missing id or decision" }, { status: 400 });
-  }
-
-  if (isConvexMode()) {
-    const convex = getConvexClient()!;
-    const result = await convex.mutation(api.approvals.resolve, {
-      id: id as any,
-      resolution: decision,
-    });
-    if (!result) {
-      return NextResponse.json({ error: "Approval not found or already resolved" }, { status: 404 });
-    }
-
-    if (decision === "approved" && (result.type === "send_email" || result.type === "reply_to_email")) {
-      try {
-        await executeEmailSend(result.data as Record<string, unknown>);
-        await convex.mutation(api.activityLog.add, {
-          type: "email_sent",
-          summary: `Email sent to ${(result.data as any).to}`,
-          metadata: result.data,
-        });
-      } catch (err) {
-        console.error("Failed to send email via Resend:", err);
-        return NextResponse.json({ approval: result, emailError: "Failed to send email." });
-      }
-    }
-
-    if (decision === "approved" && result.type === "initiate_call") {
-      try {
-        const callResult = await executeCall(result.data as Record<string, unknown>);
-        // Use "approval_resolved" type for Convex since the schema may not include call-specific types
-        await convex.mutation(api.activityLog.add, {
-          type: "approval_resolved",
-          summary: `Call placed to ${(result.data as any).contactName} (${(result.data as any).phoneNumber})`,
-          metadata: callResult,
-        });
-      } catch (err) {
-        console.error("Failed to place call via Twilio:", err);
-        return NextResponse.json({
-          approval: result,
-          callError: `Failed to place call: ${err instanceof Error ? err.message : "Unknown error"}`,
-        });
-      }
-    }
-
-    await convex.mutation(api.activityLog.add, {
-      type: "approval_resolved",
-      summary: `${result.type} ${decision}`,
-    });
-    return NextResponse.json({ approval: result });
   }
 
   const result = resolveApproval(id, decision);
